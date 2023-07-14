@@ -3,6 +3,8 @@ seeds = false
 skip-lint = false
 [programs.localnet]
 nested_account_resolution = "J5kQSQoRjuWYwPBKEWpMcttcZVU7f2WGLBQWFXNZCfVU"
+benchmark_aar = "J5kQSQoRjuWYwPBKEWpMcttcZVU7f2WGLBQWFXNZCfVU"
+benchmark_aar_callee = "8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA"
 
 [registry]
 url = "https://api.apr.dev"
