@@ -16,7 +16,6 @@ describe("nested-account-resolution", () => {
   const program = anchor.workspace
     .BenchmarkAarCallee as Program<BenchmarkAarCallee>;
 
-  // const payerKp = anchor.web3.Keypair.generate();
   const provider = anchor.getProvider();
   const payer = provider.publicKey;
 
@@ -101,7 +100,6 @@ describe("nested-account-resolution", () => {
       .instruction();
 
     ix = await additionalAccountsRequest(program, ix, "transfer_linked_list");
-    console.log(ix.keys.map((k) => k.pubkey.toString()));
 
     let tx = new anchor.web3.Transaction().add(ix);
     txid = await provider.sendAndConfirm(tx, [], {
@@ -111,5 +109,9 @@ describe("nested-account-resolution", () => {
 
     let node = await program.account.node.fetch(headNode, "confirmed");
     assert(node.owner.toString() === destination.toString());
+    while (node.next !== null) {
+      node = await program.account.node.fetch(node.next, "confirmed");
+      assert(node.owner.toString() === destination.toString());
+    }
   });
 });
