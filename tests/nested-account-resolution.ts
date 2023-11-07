@@ -12,7 +12,6 @@ describe("nested-account-resolution", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  // const program = anchor.workspace.NestedAccountResolution as Program<NestedAccountResolution>;
   const program = anchor.workspace
     .BenchmarkAarCallee as Program<BenchmarkAarCallee>;
 
@@ -23,7 +22,6 @@ describe("nested-account-resolution", () => {
   let destination = destinationKp.publicKey;
 
   it("Can initialize a linked list with 1 node", async () => {
-    // Add your test here.
     const nodeKp = anchor.web3.Keypair.generate();
     let headNode = nodeKp.publicKey;
     let txid = await program.methods
@@ -53,6 +51,13 @@ describe("nested-account-resolution", () => {
       skipPreflight: true,
       commitment: "confirmed",
     });
+
+    const txresp = await provider.connection.getTransaction(txid, {
+      commitment: "confirmed",
+    });
+
+    const computeUnits = txresp.meta.computeUnitsConsumed;
+    console.log({ num: 1, computeUnits });
 
     node = await program.account.node.fetch(headNode, "confirmed");
     assert(node.owner.toString() === destination.toString());
@@ -106,6 +111,13 @@ describe("nested-account-resolution", () => {
       skipPreflight: true,
       commitment: "confirmed",
     });
+
+    const txresp = await provider.connection.getTransaction(txid, {
+      commitment: "confirmed",
+    });
+
+    const computeUnits = txresp.meta.computeUnitsConsumed;
+    console.log({ num: NUM_NODES, computeUnits });
 
     let node = await program.account.node.fetch(headNode, "confirmed");
     assert(node.owner.toString() === destination.toString());

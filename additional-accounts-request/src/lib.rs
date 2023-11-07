@@ -1,17 +1,15 @@
-#![feature(generic_associated_types)]
 use core::num;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use anchor_lang::__private::ZeroCopyAccessor;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::log::{sol_log, sol_log_compute_units};
-use anchor_lang::solana_program::program::{set_return_data, MAX_RETURN_DATA};
 use anchor_lang::solana_program::{
     hash,
     program::{get_return_data, invoke, invoke_signed},
 };
 
-use bytemuck::{cast_mut, cast_slice};
+use bytemuck::cast_slice;
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct IAccountMeta {

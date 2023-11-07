@@ -85,7 +85,6 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
     let hasMore = data.slice(offset + numMetas.toNumber() * metaSize)[0];
     return {
       accounts: realAccountMetas,
-      hasMore: false,
       hasMore: hasMore != 0,
     };
   } catch (e) {

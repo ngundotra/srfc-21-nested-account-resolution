@@ -1,6 +1,5 @@
 use additional_accounts_request::{IAccountMeta, PreflightPayload};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program;
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::Discriminator;
 
@@ -25,12 +24,9 @@ fn create_accounts(num_accounts: u32) -> Vec<IAccountMeta> {
 
 #[program]
 pub mod benchmark_aar_callee {
-    use std::thread::current;
-
-    use anchor_lang::solana_program::borsh::try_from_slice_unchecked;
     use anchor_lang::solana_program::program::invoke;
+    use anchor_lang::solana_program::system_instruction;
     use anchor_lang::solana_program::sysvar::{rent::Rent, Sysvar};
-    use anchor_lang::solana_program::{log::sol_log_compute_units, system_instruction};
 
     use super::*;
 
@@ -83,7 +79,7 @@ pub mod benchmark_aar_callee {
         ctx: Context<'_, '_, '_, 'info, TransferNested<'info>>,
         destination: Pubkey,
     ) -> Result<()> {
-        let mut current_node = &mut ctx.accounts.head_node;
+        let current_node = &mut ctx.accounts.head_node;
         msg!("current: {:?}", &current_node.owner);
         current_node.owner = destination;
         current_node.exit(&crate::id())?;
