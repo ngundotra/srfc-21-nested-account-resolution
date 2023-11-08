@@ -3,7 +3,10 @@ import * as anchor from "@coral-xyz/anchor";
 type ReturnData = {
   accounts: anchor.web3.AccountMeta[];
   hasMore: boolean;
+  page: number;
 };
+
+const MAX_ACCOUNTS = 29;
 
 /**
  *
@@ -83,12 +86,28 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
       });
     }
     let hasMore = data.slice(offset + numMetas.toNumber() * metaSize)[0];
+    let page = data.slice(offset + numMetas.toNumber() * metaSize + 1)[0];
+
+    // if (verbose) {
+    //   console.log("num metas:", numMetas.toNumber());
+    //   console.log("offset", numMetas.toNumber() * metaSize + offset);
+    //   console.log("length", data.length);
+    //   console.log(
+    //     "Remaining bytes:",
+    //     data.slice(offset + numMetas.toNumber() * metaSize)
+    //   );
+
+    //   console.log("hasMore", hasMore);
+    // }
     return {
       accounts: realAccountMetas,
       hasMore: hasMore != 0,
+      page,
     };
   } catch (e) {
-    throw new Error("Failed to parse return data: " + e + "\n" + logs);
+    throw new Error(
+      "Failed to parse return data: " + e + "\n" + logs.join("\n")
+    );
   }
 }
 
@@ -108,32 +127,54 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
 ): Promise<anchor.web3.TransactionInstruction> {
   // NOTE: LOL we have to do this because slicing only generates a view
   // so we need to copy it to a new buffer
-  let ixDisc = Buffer.from(instruction.data.slice(0, 8));
+  let originalData = Buffer.from(instruction.data);
+  let originalKeys = [].concat(instruction.keys);
+
+  // Overwrite the discriminator
+  let currentBuffer = Buffer.from(instruction.data);
   let newIxDisc = Buffer.from(
     anchor.utils.sha256.hash(`global:preflight_${methodName}`),
     "hex"
   ).slice(0, 8);
+  currentBuffer.set(newIxDisc, 0);
 
-  instruction.data.set(newIxDisc, 0);
   if (verbose) {
     console.log("\tix", instruction.data.toString("hex"));
   }
+
+  let additionalAccounts: anchor.web3.AccountMeta[][] = [[]];
   let hasMore = true;
+  let page = 0;
   let i = 0;
   while (hasMore) {
+    // Write the current page number at the end of the instruction data
+    instruction.data = Buffer.concat([currentBuffer, Buffer.from([page])]);
+
+    instruction.keys = originalKeys.concat(additionalAccounts.flat());
     let result = await resolveRemainingAccounts(
       program,
       [instruction],
       verbose
     );
     if (verbose) {
-      console.log(`Preflight result: ${result} (${i})`);
+      console.log(`Preflight result: ${JSON.stringify(result)} (${i})`);
     }
     hasMore = result.hasMore;
-    instruction.keys = instruction.keys.concat(result.accounts);
+    additionalAccounts[page] = result.accounts;
+
     i++;
+    if (i >= 16) {
+      throw new Error(`Too many iterations ${i}`);
+    }
+    if (result.accounts.length === MAX_ACCOUNTS && hasMore) {
+      page++;
+    }
   }
-  instruction.data.set(ixDisc, 0);
+
+  instruction.keys = originalKeys.concat(additionalAccounts.flat());
+  // Reset original data
+  instruction.data = originalData;
+
   if (verbose) {
     console.log("\tix", instruction.data.toString("hex"));
   }

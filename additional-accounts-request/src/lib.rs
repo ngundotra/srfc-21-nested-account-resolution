@@ -1,12 +1,10 @@
-use core::num;
 use std::collections::HashMap;
 
-use anchor_lang::__private::ZeroCopyAccessor;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::log::{sol_log, sol_log_compute_units};
+use anchor_lang::solana_program::log::sol_log_compute_units;
 use anchor_lang::solana_program::{
     hash,
-    program::{get_return_data, invoke, invoke_signed},
+    program::{get_return_data, invoke, invoke_signed, set_return_data},
 };
 
 use bytemuck::cast_slice;
@@ -19,12 +17,34 @@ pub struct IAccountMeta {
 }
 
 #[derive(Debug, Clone, AnchorDeserialize, AnchorSerialize)]
-pub struct PreflightPayload {
+pub struct AdditionalAccountsRequest {
     pub accounts: Vec<IAccountMeta>,
     pub has_more: bool,
+    pub page: u8,
 }
 
-impl PreflightPayload {
+const MAX_ACCOUNTS: usize = 29;
+
+impl AdditionalAccountsRequest {
+    pub fn new(accounts: &mut Vec<IAccountMeta>, requested_page: u8, has_more: bool) -> Self {
+        if requested_page * 29 > accounts.len() as u8 {
+            msg!("Invalid page");
+            return Self {
+                accounts: vec![],
+                page: 0,
+                has_more: false,
+            };
+        }
+        if requested_page > 0 {
+            accounts.drain(0..(requested_page - 1).min(0) as usize * MAX_ACCOUNTS);
+        }
+        Self {
+            accounts: accounts.to_vec(),
+            page: requested_page,
+            has_more,
+        }
+    }
+
     pub fn match_accounts<'info>(
         &self,
         accounts: &[AccountInfo<'info>],
@@ -75,18 +95,59 @@ impl PreflightPayload {
     // }
 }
 
-pub fn get_interface_accounts(program_key: &Pubkey, log_info: bool) -> Result<PreflightPayload> {
-    let (key, program_data) = get_return_data().unwrap();
-    assert_eq!(key, *program_key);
-    let program_data = program_data.as_slice();
-    let additional_interface_accounts = PreflightPayload::try_from_slice(&program_data)?;
+pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
+    // program_key: &Pubkey,
+    // log_info: bool,
+    ix_name: String,
+    ctx: &CpiContext<'_, '_, '_, 'info, C1>,
+    args: &[u8],
+    log_info: bool,
+) -> Result<Vec<IAccountMeta>> {
     if log_info {
-        msg!(
-            "Additional interface accounts: {:?}",
-            &additional_interface_accounts
-        );
+        msg!("Preflight {}", &ix_name);
     }
-    Ok(additional_interface_accounts)
+
+    let mut additional_accounts: Vec<IAccountMeta> = vec![];
+
+    let mut has_more = true;
+    let mut page = 0;
+    while has_more {
+        call_preflight_interface_function(ix_name.clone(), &ctx, &args, page)?;
+
+        let program_key = ctx.program.key();
+        let (key, program_data) = get_return_data().unwrap();
+        assert_eq!(key, program_key);
+
+        let program_data = program_data.as_slice();
+        let accs = AdditionalAccountsRequest::try_from_slice(&program_data)?;
+        if log_info {
+            msg!("Additional accounts: {:?}", &accs);
+        }
+
+        additional_accounts.extend(accs.accounts);
+
+        let mut should_exit = false;
+        additional_accounts.iter().rev().for_each(|acc| {
+            let mut found = false;
+            ctx.remaining_accounts.iter().rev().for_each(|account| {
+                if account.key == &acc.pubkey {
+                    found = true;
+                }
+            });
+            if !found {
+                should_exit = true;
+            }
+        });
+        if should_exit {
+            msg!("Missing account(s)");
+            break;
+        }
+
+        has_more = accs.has_more;
+        page += 1;
+    }
+
+    Ok(additional_accounts)
 }
 
 /// This calls the preflight function on the target program (defined on the ctx)
@@ -94,6 +155,7 @@ pub fn call_preflight_interface_function<'info, T: ToAccountInfos<'info> + ToAcc
     function_name: String,
     ctx: &CpiContext<'_, '_, '_, 'info, T>,
     args: &[u8],
+    page: u8,
 ) -> Result<()> {
     // setup
     sol_log_compute_units();
@@ -102,8 +164,11 @@ pub fn call_preflight_interface_function<'info, T: ToAccountInfos<'info> + ToAcc
             .to_vec();
 
     ix_data.extend_from_slice(args);
+    ix_data.extend_from_slice(&[page]);
 
-    let ix_account_metas = ctx.accounts.to_account_metas(Some(false));
+    let mut ix_account_metas = ctx.accounts.to_account_metas(Some(false));
+    ix_account_metas.extend(ctx.remaining_accounts.to_account_metas(None));
+
     let ix = anchor_lang::solana_program::instruction::Instruction {
         program_id: ctx.program.key(),
         accounts: ix_account_metas,
@@ -113,7 +178,9 @@ pub fn call_preflight_interface_function<'info, T: ToAccountInfos<'info> + ToAcc
     msg!("Preflighted...");
 
     // execute
-    invoke(&ix, &ctx.accounts.to_account_infos())?;
+    let mut ix_ais = ctx.accounts.to_account_infos();
+    ix_ais.extend(ctx.remaining_accounts.to_account_infos());
+    invoke(&ix, &ix_ais)?;
     Ok(())
 }
 
@@ -123,11 +190,13 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
     function_name: String,
     ctx: CpiContext<'_, '_, '_, 'info, T>,
     args: &[u8],
-    additional_interface_accounts: PreflightPayload,
+    additional_interface_accounts: AdditionalAccountsRequest,
     log_info: bool,
 ) -> Result<()> {
-    msg!("Creating interface context...");
-    sol_log_compute_units();
+    if log_info {
+        msg!("Creating interface context...");
+        sol_log_compute_units();
+    }
     // setup
     let remaining_accounts = ctx.remaining_accounts.to_vec();
 
@@ -135,8 +204,10 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
         hash::hash(format!("global:{}", &function_name).as_bytes()).to_bytes()[..8].to_vec();
     ix_data.extend_from_slice(&args);
 
-    msg!("Account Metas creation...");
-    sol_log_compute_units();
+    if log_info {
+        msg!("Account Metas creation...");
+        sol_log_compute_units();
+    }
     let mut ix_account_metas = ctx.accounts.to_account_metas(None);
     ix_account_metas.append(
         additional_interface_accounts
@@ -152,8 +223,10 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
             .collect::<Vec<AccountMeta>>()
             .as_mut(),
     );
-    sol_log_compute_units();
-    msg!("Account Metas created...");
+    if log_info {
+        sol_log_compute_units();
+        msg!("Account Metas created...");
+    }
 
     let ix = anchor_lang::solana_program::instruction::Instruction {
         program_id: ctx.program.key(),
@@ -164,33 +237,37 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
     let mut ix_ais: Vec<AccountInfo> = ctx.accounts.to_account_infos();
     if log_info {
         msg!("IX accounts: {:?}", &ix_ais.len());
+        msg!("Account Info creation...");
+        sol_log_compute_units();
     }
-    msg!("Account Info creation...");
-    sol_log_compute_units();
-    ix_ais.extend_from_slice(
-        &mut additional_interface_accounts
-            .match_accounts(&remaining_accounts)?
-            .to_vec(),
-    );
-    sol_log_compute_units();
-    msg!("Account Infos created...");
+    // Oddly enough, we only need to specify the account metas
+    // we can just throw the account infos in there and account metas
+    // will specify ordering & filtering (?)
+    ix_ais.extend_from_slice(&remaining_accounts);
+    if log_info {
+        sol_log_compute_units();
+        msg!("Account Infos created...");
+    }
 
     if log_info {
         msg!("IX accounts: {:?}", &ix_ais.len());
-        ix_ais.iter().into_iter().for_each(|ai| {
-            msg!(
-                "Account: {:?}, {:?}, {:?}, {:?}",
-                ai.key,
-                ai.owner,
-                ai.is_signer,
-                ai.is_writable
-            )
-        });
-        msg!("Signer seeds: {:?}", &ctx.signer_seeds);
+        // ix_ais.iter().into_iter().for_each(|ai| {
+        //     msg!(
+        //         "Account: {:?}, {:?}, {:?}, {:?}",
+        //         ai.key,
+        //         ai.owner,
+        //         ai.is_signer,
+        //         ai.is_writable
+        //     )
+        // });
+        // msg!("Signer seeds: {:?}", &ctx.signer_seeds);
     }
 
-    msg!("Finished creating context...");
-    sol_log_compute_units();
+    if log_info {
+        msg!("Finished creating context...");
+        sol_log_compute_units();
+    }
+
     // execute
     invoke_signed(&ix, &ix_ais, &ctx.signer_seeds)?;
     Ok(())
@@ -207,16 +284,7 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     log_info: bool,
 ) -> Result<()> {
     // preflight
-    if log_info {
-        msg!("Preflight {}", &ix_name);
-    }
-    call_preflight_interface_function(ix_name.clone(), &ctx, &args)?;
-
-    // parse cpi return data
-    if log_info {
-        msg!("Parse return data");
-    }
-    let additional_interface_accounts = get_interface_accounts(ctx.program.key, log_info)?;
+    let additional_accounts = identify_additional_accounts(ix_name.clone(), &ctx, &args, log_info)?;
 
     // execute
     if log_info {
@@ -226,7 +294,11 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
         ix_name.clone(),
         ctx,
         &args,
-        additional_interface_accounts,
+        AdditionalAccountsRequest {
+            has_more: false,
+            page: 0,
+            accounts: additional_accounts,
+        },
         log_info,
     )?;
     Ok(())
@@ -301,8 +373,8 @@ pub fn call_faster<'info>(
     let mut num_found: u32 = 0;
     let mut account_popped = vec![false; remaining_accounts.len()];
     for account_idx in 0..num_accounts {
-        let mut start_idx = 4 + account_idx as usize * 34;
-        let mut end_idx = 4 + (account_idx as usize + 1) * 34;
+        let start_idx = 4 + account_idx as usize * 34;
+        let end_idx = 4 + (account_idx as usize + 1) * 34;
 
         // let requested_account_meta =
         // IAccountMeta::try_from_slice(&program_data[start_idx as usize..end_idx as usize])?;
@@ -365,4 +437,10 @@ pub fn call_faster<'info>(
     invoke_signed(&ix, &ix_ais, signer_seeds)?;
 
     Ok(())
+}
+
+pub fn forward_return_data(expected_program_key: &Pubkey) {
+    let (key, return_data) = get_return_data().unwrap();
+    assert_eq!(key, *expected_program_key);
+    set_return_data(&return_data);
 }
