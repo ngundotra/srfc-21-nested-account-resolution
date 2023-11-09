@@ -1,4 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
+import { sha256 } from "@noble/hashes/sha256";
 
 type ReturnData = {
   accounts: anchor.web3.AccountMeta[];
@@ -136,10 +137,11 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
 
   // Overwrite the discriminator
   let currentBuffer = Buffer.from(instruction.data);
-  let newIxDisc = Buffer.from(
-    anchor.utils.sha256.hash(`global:preflight_${methodName}`),
-    "hex"
-  ).slice(0, 8);
+
+  let newIxDisc = Buffer.from(sha256(`global:preflight_${methodName}`)).slice(
+    0,
+    8
+  );
   currentBuffer.set(newIxDisc, 0);
 
   if (verbose) {

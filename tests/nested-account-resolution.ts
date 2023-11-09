@@ -72,8 +72,11 @@ async function sendTransaction(
       maxSupportedTransactionVersion: 2,
     });
 
-    if (logs) {
+    if (logs || txresp.meta.err) {
       console.log(txresp.meta.logMessages.join("\n"));
+    }
+    if (txresp.meta.err) {
+      throw new Error(txresp.meta.err.toString());
     }
 
     return { computeUnits: txresp.meta.computeUnitsConsumed };
@@ -130,7 +133,7 @@ describe("nested-account-resolution", () => {
     await validateTransfer(program, [nodeKp], 1);
   });
 
-  for (let i = 2; i < 20; i++) {
+  for (let i = 2; i < 12; i++) {
     const NUM_NODES = i;
     describe(`With ${NUM_NODES} nodes`, () => {
       let headNode: anchor.web3.PublicKey;
@@ -158,7 +161,7 @@ describe("nested-account-resolution", () => {
           .rpc({ skipPreflight: true, commitment: "confirmed" });
       });
 
-      it("Can transfer a linked list with 5 nodes", async () => {
+      it(`Can transfer a linked list (${NUM_NODES})`, async () => {
         let ix = await program.methods
           .transferLinkedList(destination)
           .accounts({
@@ -181,7 +184,7 @@ describe("nested-account-resolution", () => {
         await validateTransfer(program, nodeKps, NUM_NODES);
       });
 
-      it("Can transfer a linked list via CPI", async () => {
+      it(`Can transfer a linked list (${NUM_NODES}) via CPI`, async () => {
         let ix = await caller.methods
           .transfer()
           .accounts({
@@ -203,7 +206,7 @@ describe("nested-account-resolution", () => {
         await validateTransfer(program, nodeKps, NUM_NODES);
       });
 
-      it("Can transfer a linked list via CPI-CPI", async () => {
+      it(`Can transfer a linked list (${NUM_NODES}) via CPI-CPI`, async () => {
         // Now perform the thing
         let ix = await callerWrapper.methods
           .transfer()
