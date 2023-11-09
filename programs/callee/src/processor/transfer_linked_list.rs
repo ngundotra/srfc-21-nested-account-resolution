@@ -10,7 +10,7 @@ pub struct TransferNested<'info> {
 }
 
 pub fn transfer_linked_list<'info>(
-    ctx: Context<'_, '_, '_, 'info, TransferNested<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, TransferNested<'info>>,
     destination: Pubkey,
 ) -> Result<()> {
     let current_node = &mut ctx.accounts.head_node;
@@ -45,7 +45,7 @@ pub fn transfer_linked_list<'info>(
 }
 
 pub fn preflight_transfer_linked_list<'info>(
-    ctx: Context<'_, '_, '_, 'info, TransferNested<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, TransferNested<'info>>,
     destination: Pubkey,
     page: u8,
 ) -> Result<()> {

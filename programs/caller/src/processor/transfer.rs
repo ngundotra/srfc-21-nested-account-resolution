@@ -1,6 +1,8 @@
-use additional_accounts_request::{call, forward_return_data, identify_additional_accounts};
+use additional_accounts_request::{
+    call, forward_return_data, identify_additional_accounts, InterfaceInstruction,
+};
 use anchor_lang::prelude::*;
-use benchmark_aar_callee::interface::instructions::ITransfer;
+use callee::interface::instructions::ITransferLinkedList;
 
 #[derive(Accounts)]
 pub struct Transfer<'info> {
@@ -28,11 +30,11 @@ pub fn preflight_transfer<'info>(
     args.extend(page.to_le_bytes().to_vec());
 
     identify_additional_accounts(
-        "transfer_linked_list".to_string(),
+        ITransferLinkedList::instruction_name(),
         &CpiContext::new(
             ctx.accounts.program.clone(),
-            ITransfer {
-                owner: ctx.accounts.owner.to_account_info(),
+            ITransferLinkedList {
+                owner: ctx.accounts.owner.clone(),
                 head_node: ctx.accounts.head.clone(),
             },
         )
@@ -49,15 +51,15 @@ pub fn preflight_transfer<'info>(
 pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {
     let cpi_ctx = CpiContext::new(
         ctx.accounts.program.clone(),
-        ITransfer {
-            owner: ctx.accounts.owner.to_account_info(),
+        ITransferLinkedList {
+            owner: ctx.accounts.owner.clone(),
             head_node: ctx.accounts.head.clone(),
         },
     )
     .with_remaining_accounts(ctx.remaining_accounts.to_vec());
 
     call(
-        "transfer_linked_list".to_string(),
+        ITransferLinkedList::instruction_name(),
         cpi_ctx,
         ctx.accounts.destination.key.try_to_vec().unwrap(),
         false,

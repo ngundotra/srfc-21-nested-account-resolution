@@ -1,12 +1,12 @@
 [package]
-name = "benchmark-aar-callee"
+name = "callee"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "benchmark_aar_callee"
+name = "callee"
 
 [features]
 no-entrypoint = []
@@ -19,5 +19,5 @@ default = []
 overflow-checks = true
 
 [dependencies]
-anchor-lang = "0.28.0"
+anchor-lang = "0.29.0"
 additional-accounts-request = { version = "0.1.0", path = "../../additional-accounts-request"}

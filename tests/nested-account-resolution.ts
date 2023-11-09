@@ -1,23 +1,21 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { NestedAccountResolution } from "../target/types/nested_account_resolution";
-import { BenchmarkAarCallee } from "../target/types/benchmark_aar_callee";
+import { CallerWrapper } from "../target/types/caller_wrapper";
+import { Callee } from "../target/types/callee";
 import { assert } from "chai";
-import {
-  additionalAccountsRequest,
-  resolveRemainingAccounts,
-} from "./additionalAccountsRequest";
-import { BenchmarkAarCaller } from "../target/types/benchmark_aar_caller";
+import { additionalAccountsRequest } from "./additionalAccountsRequest";
+import { Caller } from "../target/types/caller";
 
 describe("nested-account-resolution", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace
-    .BenchmarkAarCallee as Program<BenchmarkAarCallee>;
+  const program = anchor.workspace.Callee as Program<Callee>;
 
-  const caller = anchor.workspace
-    .BenchmarkAarCaller as Program<BenchmarkAarCaller>;
+  const caller = anchor.workspace.Caller as Program<Caller>;
+
+  const callerWrapper = anchor.workspace
+    .CallerWrapper as Program<CallerWrapper>;
 
   const provider = anchor.getProvider();
   const payer = provider.publicKey;
@@ -148,24 +146,67 @@ describe("nested-account-resolution", () => {
         })
         .instruction();
 
-      ix = await additionalAccountsRequest(caller, ix, "transfer", true);
+      ix = await additionalAccountsRequest(caller, ix, "transfer");
 
       let tx = new anchor.web3.Transaction().add(ix);
 
-      let message = anchor.web3.MessageV0.compile({
-        payerKey: program.provider.publicKey!,
-        instructions: [ix],
-        recentBlockhash: (
-          await program.provider.connection.getRecentBlockhash()
-        ).blockhash,
-      });
-      let transaction = new anchor.web3.VersionedTransaction(message);
+      // let message = anchor.web3.MessageV0.compile({
+      //   payerKey: program.provider.publicKey!,
+      //   instructions: [ix],
+      //   recentBlockhash: (
+      //     await program.provider.connection.getRecentBlockhash()
+      //   ).blockhash,
+      // });
+      // let transaction = new anchor.web3.VersionedTransaction(message);
 
-      let simulationResult =
-        await program.provider.connection.simulateTransaction(transaction, {
-          commitment: "confirmed",
-        });
-      console.log({ logs: simulationResult.value.logs });
+      // let simulationResult =
+      //   await program.provider.connection.simulateTransaction(transaction, {
+      //     commitment: "confirmed",
+      //   });
+      // console.log({ logs: simulationResult.value.logs });
+
+      let txid = await provider.sendAndConfirm(tx, [], {
+        skipPreflight: true,
+        commitment: "confirmed",
+      });
+
+      const txresp = await provider.connection.getTransaction(txid, {
+        commitment: "confirmed",
+      });
+
+      const computeUnits = txresp.meta.computeUnitsConsumed;
+      console.log({ num: NUM_NODES, computeUnits });
+
+      let node = await program.account.node.fetch(headNode, "confirmed");
+      assert(node.owner.toString() === destination.toString());
+      while (node.next !== null) {
+        node = await program.account.node.fetch(node.next, "confirmed");
+        assert(node.owner.toString() === destination.toString());
+      }
+    });
+
+    it("Can transfer a linked list via CPI-CPI", async () => {
+      // Now perform the thing
+      let ix = await callerWrapper.methods
+        .transfer()
+        .accounts({
+          delegateProgram: caller.programId,
+          program: program.programId,
+          head: headNode,
+          owner: payer,
+          destination,
+        })
+        .instruction();
+
+      ix = await additionalAccountsRequest(callerWrapper, ix, "transfer");
+
+      let tx = new anchor.web3.Transaction()
+        .add(
+          anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
+            units: 1_400_000,
+          })
+        )
+        .add(ix);
 
       let txid = await provider.sendAndConfirm(tx, [], {
         skipPreflight: true,
@@ -188,3 +229,25 @@ describe("nested-account-resolution", () => {
     });
   });
 });
+
+// Useful
+
+// let message = anchor.web3.MessageV0.compile({
+//   payerKey: program.provider.publicKey!,
+//   instructions: [
+//     anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
+//       units: 1_400_000,
+//     }),
+//     ix,
+//   ],
+//   recentBlockhash: (
+//     await program.provider.connection.getRecentBlockhash()
+//   ).blockhash,
+// });
+// let transaction = new anchor.web3.VersionedTransaction(message);
+
+// let simulationResult =
+//   await program.provider.connection.simulateTransaction(transaction, {
+//     commitment: "confirmed",
+//   });
+// console.log({ logs: simulationResult.value.logs });

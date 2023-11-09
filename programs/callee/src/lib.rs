@@ -13,19 +13,19 @@ use processor::transfer_linked_list::*;
 declare_id!("8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA");
 
 #[program]
-pub mod benchmark_aar_callee {
+pub mod callee {
     use super::*;
 
     /// Transfers all nodes in a linked list to a different owner
     pub fn transfer_linked_list<'info>(
-        ctx: Context<'_, '_, '_, 'info, TransferNested<'info>>,
+        ctx: Context<'_, '_, 'info, 'info, TransferNested<'info>>,
         destination: Pubkey,
     ) -> Result<()> {
         processor::transfer_linked_list::transfer_linked_list(ctx, destination)
     }
 
     pub fn preflight_transfer_linked_list<'info>(
-        ctx: Context<'_, '_, '_, 'info, TransferNested<'info>>,
+        ctx: Context<'_, '_, 'info, 'info, TransferNested<'info>>,
         destination: Pubkey,
         page: u8,
     ) -> Result<()> {

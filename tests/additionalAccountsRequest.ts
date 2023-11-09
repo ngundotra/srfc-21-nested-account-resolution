@@ -22,7 +22,11 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
   // Simulate transaction
   let message = anchor.web3.MessageV0.compile({
     payerKey: program.provider.publicKey!,
-    instructions,
+    instructions: [
+      anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
+        units: 1_400_000,
+      }),
+    ].concat(instructions),
     recentBlockhash: (await program.provider.connection.getRecentBlockhash())
       .blockhash,
   });

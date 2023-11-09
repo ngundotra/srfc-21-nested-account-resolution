@@ -444,3 +444,7 @@ pub fn forward_return_data(expected_program_key: &Pubkey) {
     assert_eq!(key, *expected_program_key);
     set_return_data(&return_data);
 }
+
+pub trait InterfaceInstruction {
+    fn instruction_name() -> String;
+}

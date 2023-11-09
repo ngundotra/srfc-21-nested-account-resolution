@@ -5,8 +5,9 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-benchmark-aar-caller = "8dHQbAAjuxANBSjsEdFMF4d5wMfTS3Ro2DTLaawBLvJ3"
-benchmark_aar_callee = "8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA"
+caller = "8dHQbAAjuxANBSjsEdFMF4d5wMfTS3Ro2DTLaawBLvJ3"
+caller-wrapper = "BoU7xvB9ZUrSxpRsYaeKbjj5Xv7MdR2YiSRgMgwoij6k"
+callee = "8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA"
 
 [registry]
 url = "https://api.apr.dev"
