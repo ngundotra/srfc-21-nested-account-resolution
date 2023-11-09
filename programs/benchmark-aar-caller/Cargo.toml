@@ -20,4 +20,5 @@ overflow-checks = true
 
 [dependencies]
 anchor-lang = "0.28.0"
+benchmark-aar-callee = { version = "0.1.0", path = "../benchmark-aar-callee", features=["no-entrypoint"]}
 additional-accounts-request = { version = "0.1.0", path = "../../additional-accounts-request"}

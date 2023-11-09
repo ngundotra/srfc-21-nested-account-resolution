@@ -366,6 +366,7 @@ version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
  "anchor-lang",
+ "benchmark-aar-callee",
 ]
 
 [[package]]
