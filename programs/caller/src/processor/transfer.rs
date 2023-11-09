@@ -21,11 +21,6 @@ pub fn preflight_transfer<'info>(
     ctx: Context<'_, '_, '_, 'info, Transfer<'info>>,
     page: u8,
 ) -> Result<()> {
-    msg!("Preflighting...");
-    ctx.remaining_accounts.iter().for_each(|account| {
-        msg!("> account: {}", account.key);
-    });
-
     let mut args = ctx.accounts.destination.key.try_to_vec().unwrap();
     args.extend(page.to_le_bytes().to_vec());
 
@@ -42,7 +37,6 @@ pub fn preflight_transfer<'info>(
         &args,
         false,
     )?;
-    msg!("...preflighted");
 
     forward_return_data(ctx.accounts.program.key);
     Ok(())

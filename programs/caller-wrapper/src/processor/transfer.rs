@@ -23,11 +23,6 @@ pub fn preflight_transfer<'info>(
     ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>,
     page: u8,
 ) -> Result<()> {
-    msg!("Preflighting...");
-    ctx.remaining_accounts.iter().for_each(|account| {
-        msg!("> account: {}", account.key);
-    });
-
     identify_additional_accounts(
         ITransferAnything::instruction_name(),
         &CpiContext::new(
@@ -43,7 +38,6 @@ pub fn preflight_transfer<'info>(
         &[],
         false,
     )?;
-    msg!("...preflighted");
 
     forward_return_data(ctx.accounts.program.key);
     Ok(())

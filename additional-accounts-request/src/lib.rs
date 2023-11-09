@@ -96,8 +96,6 @@ impl AdditionalAccountsRequest {
 }
 
 pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
-    // program_key: &Pubkey,
-    // log_info: bool,
     ix_name: String,
     ctx: &CpiContext<'_, '_, '_, 'info, C1>,
     args: &[u8],
