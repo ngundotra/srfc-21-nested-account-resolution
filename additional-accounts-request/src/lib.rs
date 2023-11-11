@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::log::sol_log_compute_units;
 use anchor_lang::solana_program::{
@@ -18,55 +16,33 @@ pub struct IAccountMeta {
 
 #[derive(Debug, Clone, AnchorDeserialize, AnchorSerialize)]
 pub struct AdditionalAccountsRequest {
+    pub accounts: AdditionalAccounts,
+    pub page: u8,
+}
+
+#[derive(Debug, Clone, AnchorDeserialize, AnchorSerialize)]
+pub struct AdditionalAccounts {
     pub accounts: Vec<IAccountMeta>,
     pub has_more: bool,
-    pub page: u8,
 }
 
 const MAX_ACCOUNTS: usize = 29;
 
-impl AdditionalAccountsRequest {
-    pub fn new(accounts: &mut Vec<IAccountMeta>, requested_page: u8, has_more: bool) -> Self {
-        if requested_page * 29 > accounts.len() as u8 {
+impl AdditionalAccounts {
+    pub fn page_to(&mut self, requested_page: u8) -> Result<()> {
+        if requested_page * 29 > self.accounts.len() as u8 {
             msg!("Invalid page");
-            return Self {
-                accounts: vec![],
-                page: 0,
-                has_more: false,
-            };
+            return Err(ProgramError::Custom(696969).into());
         }
+        // In case we return to a previous page, we need to remove all accounts
         if requested_page > 0 {
-            accounts.drain(0..(requested_page - 1).min(0) as usize * MAX_ACCOUNTS);
+            self.accounts
+                .drain(0..requested_page as usize * MAX_ACCOUNTS);
         }
-        Self {
-            accounts: accounts.to_vec(),
-            page: requested_page,
-            has_more,
+        if self.accounts.len() > MAX_ACCOUNTS {
+            self.accounts.truncate(self.accounts.len() - MAX_ACCOUNTS);
         }
-    }
-
-    pub fn match_accounts<'info>(
-        &self,
-        accounts: &[AccountInfo<'info>],
-    ) -> Result<Vec<AccountInfo<'info>>> {
-        let mut map = HashMap::<Pubkey, AccountInfo>::new();
-
-        for acc in accounts {
-            map.insert(acc.key(), acc.clone());
-        }
-
-        let mut found_accounts = Vec::<AccountInfo>::new();
-        for acc in self.accounts.iter() {
-            let found_acc = map.get(&acc.pubkey);
-            if found_acc.is_none() {
-                msg!(&format!("account not found: {:?}", acc.pubkey));
-                return Err(ProgramError::NotEnoughAccountKeys.into());
-            }
-            found_accounts.push(found_acc.unwrap().clone());
-        }
-        msg!("found accounts: {:?}", found_accounts.len());
-
-        Ok(found_accounts)
+        Ok(())
     }
 
     // pub fn set_return_data(&self) {
@@ -100,7 +76,7 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
     ctx: &CpiContext<'_, '_, '_, 'info, C1>,
     args: &[u8],
     log_info: bool,
-) -> Result<Vec<IAccountMeta>> {
+) -> Result<AdditionalAccounts> {
     if log_info {
         msg!("Preflight {}", &ix_name);
     }
@@ -110,6 +86,9 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
     let mut has_more = true;
     let mut page = 0;
     while has_more {
+        if log_info {
+            msg!("Page: {} {} {}", page, has_more, additional_accounts.len());
+        }
         call_preflight_interface_function(ix_name.clone(), &ctx, &args, page)?;
 
         let program_key = ctx.program.key();
@@ -117,10 +96,13 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
         assert_eq!(key, program_key);
 
         let program_data = program_data.as_slice();
-        let accs = AdditionalAccountsRequest::try_from_slice(&program_data)?;
         if log_info {
-            msg!("Additional accounts: {:?}", &accs);
+            msg!("Return data length: {}", program_data.len());
         }
+        let accs = AdditionalAccounts::try_from_slice(&program_data)?;
+        // if log_info {
+        //     msg!("Additional accounts: {:?}", &accs);
+        // }
 
         additional_accounts.extend(accs.accounts);
 
@@ -145,7 +127,10 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
         page += 1;
     }
 
-    Ok(additional_accounts)
+    Ok(AdditionalAccounts {
+        accounts: additional_accounts,
+        has_more,
+    })
 }
 
 /// This calls the preflight function on the target program (defined on the ctx)
@@ -188,7 +173,7 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
     function_name: String,
     ctx: CpiContext<'_, '_, '_, 'info, T>,
     args: &[u8],
-    additional_interface_accounts: AdditionalAccountsRequest,
+    additional_accounts: Vec<IAccountMeta>,
     log_info: bool,
 ) -> Result<()> {
     if log_info {
@@ -208,8 +193,7 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
     }
     let mut ix_account_metas = ctx.accounts.to_account_metas(None);
     ix_account_metas.append(
-        additional_interface_accounts
-            .accounts
+        additional_accounts
             .iter()
             .map(|acc| {
                 if acc.writable {
@@ -282,6 +266,9 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     log_info: bool,
 ) -> Result<()> {
     // preflight
+    if log_info {
+        msg!("Identifying additional accounts...")
+    }
     let additional_accounts = identify_additional_accounts(ix_name.clone(), &ctx, &args, log_info)?;
 
     // execute
@@ -292,11 +279,7 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
         ix_name.clone(),
         ctx,
         &args,
-        AdditionalAccountsRequest {
-            has_more: false,
-            page: 0,
-            accounts: additional_accounts,
-        },
+        additional_accounts.accounts,
         log_info,
     )?;
     Ok(())

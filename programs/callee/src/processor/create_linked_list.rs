@@ -4,8 +4,12 @@ use anchor_lang::solana_program::program::invoke;
 use anchor_lang::solana_program::system_instruction;
 use anchor_lang::Discriminator;
 
-// Boilerplate to support calling `transfer_nested`
-// This writes accounts to a `book` account, which contains pointer to next node
+// Boilerplate to support calling `transfer_linked_list`
+// This writes accounts to a `node` account, which contains pointer to next node
+//
+// This is great for testing Account-Data introspection with paging, but not so great for
+// testing the max number of accounts I can get with nested-account-resolution.
+// The reason is because creating a linked list requires a lot of keypair signatures lol
 #[derive(Accounts)]
 pub struct CreateLinkedList<'info> {
     #[account(mut)]
@@ -32,7 +36,6 @@ pub fn create_linked_list<'info>(
             acct.key,
             lamports,
             space,
-            // &Pubkey::default(),
             &crate::id(),
         );
         invoke(&ix, &[payer.clone(), acct.clone()])?;

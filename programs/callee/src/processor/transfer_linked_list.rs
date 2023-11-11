@@ -1,16 +1,16 @@
 use crate::state::Node;
-use additional_accounts_request::{AdditionalAccountsRequest, IAccountMeta};
+use additional_accounts_request::{AdditionalAccounts, IAccountMeta};
 use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 
 #[derive(Accounts)]
-pub struct TransferNested<'info> {
+pub struct TransferLinkedList<'info> {
     pub owner: Signer<'info>,
     #[account(mut, has_one = owner)]
     pub head_node: Account<'info, Node>,
 }
 
 pub fn transfer_linked_list<'info>(
-    ctx: Context<'_, '_, 'info, 'info, TransferNested<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, TransferLinkedList<'info>>,
     destination: Pubkey,
 ) -> Result<()> {
     let current_node = &mut ctx.accounts.head_node;
@@ -45,7 +45,7 @@ pub fn transfer_linked_list<'info>(
 }
 
 pub fn preflight_transfer_linked_list<'info>(
-    ctx: Context<'_, '_, 'info, 'info, TransferNested<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, TransferLinkedList<'info>>,
     destination: Pubkey,
     page: u8,
 ) -> Result<()> {
@@ -91,6 +91,9 @@ pub fn preflight_transfer_linked_list<'info>(
         );
         msg!("callee has_more: {}", has_more);
     }
-    set_return_data(&AdditionalAccountsRequest::new(&mut accounts, page, has_more).try_to_vec()?);
+
+    let mut additional_accounts = AdditionalAccounts { accounts, has_more };
+    additional_accounts.page_to(page)?;
+    set_return_data(&additional_accounts.try_to_vec()?);
     Ok(())
 }

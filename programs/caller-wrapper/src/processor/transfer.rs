@@ -1,7 +1,8 @@
 use additional_accounts_request::{
-    call, forward_return_data, identify_additional_accounts, InterfaceInstruction,
+    call, forward_return_data, identify_additional_accounts, AdditionalAccountsRequest,
+    InterfaceInstruction,
 };
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 use caller::interface::instructions::ITransferAnything;
 
 #[derive(Accounts)]
@@ -23,7 +24,7 @@ pub fn preflight_transfer<'info>(
     ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>,
     page: u8,
 ) -> Result<()> {
-    identify_additional_accounts(
+    let mut additional_accounts = identify_additional_accounts(
         ITransferAnything::instruction_name(),
         &CpiContext::new(
             ctx.accounts.delegate_program.clone(),
@@ -39,7 +40,9 @@ pub fn preflight_transfer<'info>(
         false,
     )?;
 
-    forward_return_data(ctx.accounts.program.key);
+    additional_accounts.page_to(page)?;
+    set_return_data(&additional_accounts.try_to_vec().unwrap());
+
     Ok(())
 }
 

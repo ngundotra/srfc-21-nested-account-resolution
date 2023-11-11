@@ -1,8 +1,9 @@
-use additional_accounts_request::{
-    call, forward_return_data, identify_additional_accounts, InterfaceInstruction,
+use additional_accounts_request::{call, identify_additional_accounts, InterfaceInstruction};
+use anchor_lang::{prelude::*, solana_program::program::set_return_data, Discriminator};
+use callee::{
+    interface::instructions::{ITransfer, ITransferLinkedList, ITransferOwnershipList},
+    state::{Node, OwnershipList},
 };
-use anchor_lang::prelude::*;
-use callee::interface::instructions::ITransferLinkedList;
 
 #[derive(Accounts)]
 pub struct Transfer<'info> {
@@ -12,7 +13,7 @@ pub struct Transfer<'info> {
     owner: Signer<'info>,
     /// CHECK:
     #[account(mut)]
-    head: AccountInfo<'info>,
+    object: AccountInfo<'info>,
     /// CHECK:
     destination: AccountInfo<'info>,
 }
@@ -24,13 +25,29 @@ pub fn preflight_transfer<'info>(
     let mut args = ctx.accounts.destination.key.try_to_vec().unwrap();
     args.extend(page.to_le_bytes().to_vec());
 
-    identify_additional_accounts(
-        ITransferLinkedList::instruction_name(),
+    let ix_name: String;
+    {
+        let account_disc = &ctx.accounts.object.try_borrow_data()?[0..8];
+        if account_disc == Node::discriminator() {
+            ix_name = ITransferLinkedList::instruction_name();
+            msg!("Linked list");
+        } else if account_disc == OwnershipList::discriminator() {
+            ix_name = ITransferOwnershipList::instruction_name();
+        } else {
+            msg!("Unknown account discriminator");
+            return Err(ProgramError::InvalidAccountData.into());
+        }
+    }
+
+    // The reason to do this is to properly forward other pages of accounts
+    // (if at any point more than 29 accounts are used, which is 100% more of a challenge than I expect to be useful)
+    let mut accs = identify_additional_accounts(
+        ix_name,
         &CpiContext::new(
             ctx.accounts.program.clone(),
-            ITransferLinkedList {
+            ITransfer {
                 owner: ctx.accounts.owner.clone(),
-                head_node: ctx.accounts.head.clone(),
+                object: ctx.accounts.object.clone(),
             },
         )
         .with_remaining_accounts(ctx.remaining_accounts.to_vec()),
@@ -38,25 +55,42 @@ pub fn preflight_transfer<'info>(
         false,
     )?;
 
-    forward_return_data(ctx.accounts.program.key);
+    // msg!("accs: {:?}", accs);
+    accs.page_to(page)?;
+    set_return_data(&accs.try_to_vec().unwrap());
+
     Ok(())
 }
 
 pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {
     let cpi_ctx = CpiContext::new(
         ctx.accounts.program.clone(),
-        ITransferLinkedList {
+        ITransfer {
             owner: ctx.accounts.owner.clone(),
-            head_node: ctx.accounts.head.clone(),
+            object: ctx.accounts.object.clone(),
         },
     )
     .with_remaining_accounts(ctx.remaining_accounts.to_vec());
 
+    let ix_name: String;
+    {
+        let account_disc = &ctx.accounts.object.try_borrow_data()?[0..8];
+        if account_disc == Node::discriminator() {
+            ix_name = ITransferLinkedList::instruction_name();
+            msg!("linked list");
+        } else if account_disc == OwnershipList::discriminator() {
+            ix_name = ITransferOwnershipList::instruction_name();
+        } else {
+            msg!("Unknown account discriminator");
+            return Err(ProgramError::InvalidAccountData.into());
+        }
+    }
+
     call(
-        ITransferLinkedList::instruction_name(),
+        ix_name,
         cpi_ctx,
         ctx.accounts.destination.key.try_to_vec().unwrap(),
-        false,
+        true,
     )?;
     Ok(())
 }

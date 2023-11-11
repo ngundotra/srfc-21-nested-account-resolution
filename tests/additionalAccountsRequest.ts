@@ -1,10 +1,10 @@
 import * as anchor from "@coral-xyz/anchor";
 import { sha256 } from "@noble/hashes/sha256";
+import { PRE_INSTRUCTIONS, sendTransaction } from "./sendTransaction";
 
-type ReturnData = {
+type AdditionalAccounts = {
   accounts: anchor.web3.AccountMeta[];
   hasMore: boolean;
-  page: number;
 };
 
 const MAX_ACCOUNTS = 29;
@@ -18,16 +18,29 @@ const MAX_ACCOUNTS = 29;
 export async function resolveRemainingAccounts<I extends anchor.Idl>(
   program: anchor.Program<I>,
   instructions: anchor.web3.TransactionInstruction[],
-  verbose: boolean = false
-): Promise<ReturnData> {
+  verbose: boolean = false,
+  slut: anchor.web3.PublicKey | undefined = undefined
+): Promise<AdditionalAccounts> {
   // Simulate transaction
+  let lookupTable: anchor.web3.AddressLookupTableAccount | undefined;
+  if (slut) {
+    if (verbose) {
+      console.log(`SLUT resolution with ${slut.toBase58()}`);
+    }
+    while (!lookupTable) {
+      lookupTable = (
+        await program.provider.connection.getAddressLookupTable(slut, {
+          commitment: "confirmed",
+        })
+      ).value;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
   let message = anchor.web3.MessageV0.compile({
     payerKey: program.provider.publicKey!,
-    instructions: [
-      anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
-        units: 1_400_000,
-      }),
-    ].concat(instructions),
+    instructions: PRE_INSTRUCTIONS.concat(instructions),
+    addressLookupTableAccounts: slut ? [lookupTable] : undefined,
     recentBlockhash: (await program.provider.connection.getRecentBlockhash())
       .blockhash,
   });
@@ -91,7 +104,6 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
       });
     }
     let hasMore = data.slice(offset + numMetas.toNumber() * metaSize)[0];
-    let page = data.slice(offset + numMetas.toNumber() * metaSize + 1)[0];
 
     // if (verbose) {
     //   console.log("num metas:", numMetas.toNumber());
@@ -107,7 +119,6 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
     return {
       accounts: realAccountMetas,
       hasMore: hasMore != 0,
-      page,
     };
   } catch (e) {
     throw new Error(
@@ -128,8 +139,12 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   program: anchor.Program<I>,
   instruction: anchor.web3.TransactionInstruction,
   methodName: string,
-  verbose: boolean = false
-): Promise<anchor.web3.TransactionInstruction> {
+  verbose: boolean = false,
+  slut: boolean = false
+): Promise<{
+  ix: anchor.web3.TransactionInstruction;
+  lookupTable?: anchor.web3.PublicKey;
+}> {
   // NOTE: LOL we have to do this because slicing only generates a view
   // so we need to copy it to a new buffer
   let originalData = Buffer.from(instruction.data);
@@ -152,21 +167,68 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   let hasMore = true;
   let page = 0;
   let i = 0;
+  let lookupTable: anchor.web3.PublicKey | undefined;
+  let lastSize = 0;
   while (hasMore) {
+    if (verbose) {
+      console.log(
+        `Page: ${page} | additionalAccounts: ${
+          additionalAccounts.flat().length
+        }`
+      );
+    }
+
     // Write the current page number at the end of the instruction data
     instruction.data = Buffer.concat([currentBuffer, Buffer.from([page])]);
 
+    // Add found accounts to instruction
     instruction.keys = originalKeys.concat(additionalAccounts.flat());
     let result = await resolveRemainingAccounts(
       program,
       [instruction],
-      verbose
+      false,
+      lookupTable
     );
+    // if (verbose) {
+    //   console.log(`Preflight result: ${JSON.stringify(result)} (${i})`);
+    // }
+
     if (verbose) {
-      console.log(`Preflight result: ${JSON.stringify(result)} (${i})`);
+      console.log(`Page: ${page} | requested: ${result.accounts.length}`);
     }
     hasMore = result.hasMore;
     additionalAccounts[page] = result.accounts;
+
+    if (additionalAccounts.flat().length >= 10 && slut) {
+      if (!lookupTable) {
+        const [ix, tableAddr] =
+          anchor.web3.AddressLookupTableProgram.createLookupTable({
+            authority: program.provider.publicKey!,
+            payer: program.provider.publicKey!,
+            recentSlot: (
+              await program.provider.connection.getLatestBlockhashAndContext()
+            ).context.slot,
+          });
+
+        await sendTransaction(program.provider.connection, [ix]);
+        lookupTable = tableAddr;
+      }
+
+      if (additionalAccounts.flat().length - lastSize > 10) {
+        const ix = anchor.web3.AddressLookupTableProgram.extendLookupTable({
+          authority: program.provider.publicKey!,
+          payer: program.provider.publicKey!,
+          addresses: additionalAccounts
+            .flat()
+            .slice(lastSize)
+            .map((acc) => acc.pubkey),
+          lookupTable,
+        });
+
+        await sendTransaction(program.provider.connection, [ix]);
+        lastSize = additionalAccounts.flat().length;
+      }
+    }
 
     i++;
     if (i >= 16) {
@@ -177,12 +239,40 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
     }
   }
 
+  if (slut && lookupTable && additionalAccounts.flat().length - lastSize > 0) {
+    const ix = anchor.web3.AddressLookupTableProgram.extendLookupTable({
+      authority: program.provider.publicKey!,
+      payer: program.provider.publicKey!,
+      addresses: additionalAccounts
+        .flat()
+        .slice(lastSize)
+        .map((acc) => acc.pubkey),
+      lookupTable,
+    });
+
+    await sendTransaction(program.provider.connection, [ix]);
+  }
+
   instruction.keys = originalKeys.concat(additionalAccounts.flat());
+
   // Reset original data
   instruction.data = originalData;
 
-  if (verbose) {
-    console.log("\tix", instruction.data.toString("hex"));
+  if (slut && lookupTable) {
+    let activeSlut = false;
+    while (!activeSlut) {
+      let table = await program.provider.connection.getAddressLookupTable(
+        lookupTable,
+        { commitment: "finalized" }
+      );
+      if (table.value) {
+        activeSlut =
+          table.value.isActive() &&
+          table.value.state.addresses.length ===
+            additionalAccounts.flat().length;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
   }
-  return instruction;
+  return { ix: instruction, lookupTable };
 }
