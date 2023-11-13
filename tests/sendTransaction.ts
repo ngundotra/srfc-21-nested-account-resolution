@@ -13,9 +13,10 @@ export const PRE_INSTRUCTIONS = [
   anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
     units: 1_400_000,
   }),
-  anchor.web3.ComputeBudgetProgram.requestHeapFrame({
-    bytes: 1024 * 32 * 6,
-  }),
+  // Only need this is we consume too much heap while resolving / identifying accounts
+  // anchor.web3.ComputeBudgetProgram.requestHeapFrame({
+  //   bytes: 1024 * 32 * 6,
+  // }),
 ];
 
 export async function sendTransaction(

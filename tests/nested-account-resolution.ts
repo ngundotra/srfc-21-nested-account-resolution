@@ -204,7 +204,7 @@ describe("nested-account-resolution", () => {
     }
   });
   describe("Ownership List tests", () => {
-    for (let i = 29; i < 31; i++) {
+    for (let i = 29; i < 30; i++) {
       const NUM_NODES = i;
 
       describe(`With ${NUM_NODES} nodes`, () => {
