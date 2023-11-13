@@ -204,7 +204,7 @@ describe("nested-account-resolution", () => {
     }
   });
   describe("Ownership List tests", () => {
-    for (let i = 29; i < 30; i++) {
+    for (let i = 29; i < 31; i++) {
       const NUM_NODES = i;
 
       describe(`With ${NUM_NODES} nodes`, () => {
@@ -224,7 +224,7 @@ describe("nested-account-resolution", () => {
             .rpc({ skipPreflight: false, commitment: "confirmed" });
         });
 
-        it.skip(`Can transfer an ownership list (${NUM_NODES})`, async () => {
+        it(`Can transfer an ownership list (${NUM_NODES})`, async () => {
           let ix = await program.methods
             .transferOwnershipList(ownershipList)
             .accounts({
@@ -267,25 +267,21 @@ describe("nested-account-resolution", () => {
             caller,
             ix,
             "transfer",
-            true,
+            false,
             true
           );
           ix = _ix;
-          console.log(
-            `Original keys length: ${originalKeys.length}\nCurrent key len: ${ix.keys.length}`
-          );
 
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
-              logs: true,
             })
           ).computeUnits;
 
           console.log({ num: NUM_NODES, computeUnits });
         });
 
-        it.skip(`Can transfer a linked list (${NUM_NODES}) via CPI-CPI`, async () => {
+        it(`Can transfer a linked list (${NUM_NODES}) via CPI-CPI`, async () => {
           // Now perform the thing
           let ix = await callerWrapper.methods
             .transfer()
@@ -311,7 +307,6 @@ describe("nested-account-resolution", () => {
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
-              logs: true,
             })
           ).computeUnits;
 

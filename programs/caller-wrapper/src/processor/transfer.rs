@@ -1,6 +1,6 @@
 use additional_accounts_request::{
-    call, forward_return_data, identify_additional_accounts, AdditionalAccountsRequest,
-    InterfaceInstruction,
+    call, forward_return_data, identify_additional_accounts, resolve_additional_accounts,
+    AdditionalAccountsRequest, InterfaceInstruction,
 };
 use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 use caller::interface::instructions::ITransferAnything;
@@ -24,7 +24,7 @@ pub fn preflight_transfer<'info>(
     ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>,
     page: u8,
 ) -> Result<()> {
-    let mut additional_accounts = identify_additional_accounts(
+    let additional_accounts = resolve_additional_accounts(
         ITransferAnything::instruction_name(),
         &CpiContext::new(
             ctx.accounts.delegate_program.clone(),
@@ -37,11 +37,16 @@ pub fn preflight_transfer<'info>(
         )
         .with_remaining_accounts(ctx.remaining_accounts.to_vec()),
         &[],
+        page,
         false,
     )?;
 
-    additional_accounts.page_to(page)?;
-    set_return_data(&additional_accounts.try_to_vec().unwrap());
+    if page as u32 > additional_accounts.num_accounts {
+        msg!("Page {} is out of bounds", page);
+        return Err(ProgramError::InvalidInstructionData.into());
+    }
+
+    set_return_data(bytemuck::bytes_of(&additional_accounts));
 
     Ok(())
 }

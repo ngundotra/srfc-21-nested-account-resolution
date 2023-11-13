@@ -3,7 +3,6 @@ use anchor_lang::prelude::*;
 pub mod interface;
 pub mod processor;
 
-pub use interface::meta::*;
 pub use processor::transfer::*;
 
 declare_id!("BoU7xvB9ZUrSxpRsYaeKbjj5Xv7MdR2YiSRgMgwoij6k");

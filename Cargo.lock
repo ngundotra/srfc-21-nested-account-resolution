@@ -556,6 +556,7 @@ version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
  "anchor-lang",
+ "bytemuck",
 ]
 
 [[package]]
@@ -564,6 +565,7 @@ version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
  "anchor-lang",
+ "bytemuck",
  "callee",
 ]
 
@@ -573,6 +575,7 @@ version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
  "anchor-lang",
+ "bytemuck",
  "caller",
 ]
 

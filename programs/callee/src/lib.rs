@@ -6,7 +6,6 @@ pub mod state;
 
 // Need this to be able to get ExternalIAccountMeta into IDLs
 // Please remove once ExternalIAccountMeta is a normal type in Anchor
-pub use interface::meta::*;
 use processor::create_linked_list::*;
 use processor::create_ownership_list::*;
 use processor::transfer_linked_list::*;

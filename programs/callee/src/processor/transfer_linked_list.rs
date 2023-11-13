@@ -1,5 +1,5 @@
 use crate::state::Node;
-use additional_accounts_request::{AdditionalAccounts, IAccountMeta};
+use additional_accounts_request::{AdditionalAccounts, IAccountMeta, MAX_ACCOUNTS};
 use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 
 #[derive(Accounts)]
@@ -49,51 +49,50 @@ pub fn preflight_transfer_linked_list<'info>(
     destination: Pubkey,
     page: u8,
 ) -> Result<()> {
-    let mut accounts: Vec<IAccountMeta> = vec![];
-    let mut has_more: bool = false;
-
     ctx.remaining_accounts.iter().for_each(|account| {
         msg!("> received: {}", account.key);
     });
     let mut accounts_iter = ctx.remaining_accounts.into_iter();
 
+    let mut additional_accounts = AdditionalAccounts::new();
     let mut current_node = ctx.accounts.head_node.to_owned();
-    while current_node.next.is_some() {
+    let mut seen = 0;
+    while current_node.next.is_some() && additional_accounts.has_space_available() {
         let next_node = current_node.next.unwrap();
-        accounts.push(IAccountMeta {
-            pubkey: next_node,
-            signer: false,
-            writable: true,
-        });
+        if seen >= MAX_ACCOUNTS * page as usize {
+            additional_accounts.add_account(&next_node, true)?;
+        }
         match next_account_info(&mut accounts_iter) {
             Ok(acct) => {
                 if acct.key() != next_node {
                     msg!("Missing: {}", next_node.to_string());
-                    has_more = true;
+                    additional_accounts.set_has_more(true);
                     break;
                 } else {
                     current_node = Account::<Node>::try_from_unchecked(&acct)?;
+                    seen += 1;
                 }
             }
             _ => {
                 msg!("Missing: {}", next_node.to_string());
-                has_more = true;
+                additional_accounts.set_has_more(true);
                 break;
             }
         }
     }
 
-    msg!("callee requested accounts: {}", accounts.len());
-    if accounts.len() >= 1 {
+    msg!(
+        "callee requested accounts: {}",
+        additional_accounts.num_accounts
+    );
+    if additional_accounts.num_accounts >= 1 {
         msg!(
             "callee last account: {}",
-            accounts[accounts.len() - 1].pubkey.to_string()
+            additional_accounts.accounts[additional_accounts.num_accounts as usize - 1].to_string()
         );
-        msg!("callee has_more: {}", has_more);
+        msg!("callee has_more: {}", additional_accounts.has_more);
     }
 
-    let mut additional_accounts = AdditionalAccounts { accounts, has_more };
-    additional_accounts.page_to(page)?;
-    set_return_data(&additional_accounts.try_to_vec()?);
+    set_return_data(bytemuck::bytes_of(&additional_accounts));
     Ok(())
 }

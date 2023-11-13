@@ -1,4 +1,6 @@
-use additional_accounts_request::{call, identify_additional_accounts, InterfaceInstruction};
+use additional_accounts_request::{
+    call, identify_additional_accounts, resolve_additional_accounts, InterfaceInstruction,
+};
 use anchor_lang::{prelude::*, solana_program::program::set_return_data, Discriminator};
 use callee::{
     interface::instructions::{ITransfer, ITransferLinkedList, ITransferOwnershipList},
@@ -41,7 +43,7 @@ pub fn preflight_transfer<'info>(
 
     // The reason to do this is to properly forward other pages of accounts
     // (if at any point more than 29 accounts are used, which is 100% more of a challenge than I expect to be useful)
-    let mut accs = identify_additional_accounts(
+    let additional_accounts = resolve_additional_accounts(
         ix_name,
         &CpiContext::new(
             ctx.accounts.program.clone(),
@@ -52,12 +54,16 @@ pub fn preflight_transfer<'info>(
         )
         .with_remaining_accounts(ctx.remaining_accounts.to_vec()),
         &args,
+        page,
         false,
     )?;
 
-    // msg!("accs: {:?}", accs);
-    accs.page_to(page)?;
-    set_return_data(&accs.try_to_vec().unwrap());
+    if page as u32 > additional_accounts.num_accounts {
+        msg!("Page {} is out of bounds", page);
+        return Err(ProgramError::InvalidInstructionData.into());
+    }
+
+    set_return_data(bytemuck::bytes_of(&additional_accounts));
 
     Ok(())
 }
@@ -80,6 +86,7 @@ pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Resu
             msg!("linked list");
         } else if account_disc == OwnershipList::discriminator() {
             ix_name = ITransferOwnershipList::instruction_name();
+            msg!("ownership list");
         } else {
             msg!("Unknown account discriminator");
             return Err(ProgramError::InvalidAccountData.into());

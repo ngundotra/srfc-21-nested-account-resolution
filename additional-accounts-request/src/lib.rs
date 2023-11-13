@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::log::sol_log_compute_units;
+use anchor_lang::solana_program::program::MAX_RETURN_DATA;
 use anchor_lang::solana_program::{
     hash,
     program::{get_return_data, invoke, invoke_signed, set_return_data},
@@ -7,110 +8,164 @@ use anchor_lang::solana_program::{
 
 use bytemuck::cast_slice;
 
-#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
+#[derive(Debug, Copy, Clone, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
+#[repr(C)]
 pub struct IAccountMeta {
     pub pubkey: Pubkey,
-    pub signer: bool,
-    pub writable: bool,
+    pub writable: u8,
 }
 
-#[derive(Debug, Clone, AnchorDeserialize, AnchorSerialize)]
+// unsafe impl bytemuck::Zeroable for IAccountMeta {}
+// unsafe impl bytemuck::Pod for IAccountMeta {}
+
+pub const MAX_ACCOUNTS: usize = 30;
+
+#[zero_copy]
+#[derive(Debug, AnchorDeserialize, AnchorSerialize)]
+pub struct AdditionalAccounts {
+    pub protocol_version: u8,
+    pub has_more: u8,
+    pub _padding_1: [u8; 2],
+    pub num_accounts: u32,
+    pub accounts: [Pubkey; MAX_ACCOUNTS],
+    pub writable_bits: [u8; MAX_ACCOUNTS],
+    pub _padding_2: [u8; 26],
+}
+
+impl Default for AdditionalAccounts {
+    fn default() -> Self {
+        Self {
+            protocol_version: 0,
+            has_more: 0,
+            _padding_1: [0u8; 2],
+            num_accounts: 0u32,
+            accounts: [Pubkey::default(); MAX_ACCOUNTS],
+            writable_bits: [0u8; MAX_ACCOUNTS],
+            _padding_2: [0u8; 26],
+        }
+    }
+}
+
+impl AdditionalAccounts {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn has_space_available(&self) -> bool {
+        MAX_ACCOUNTS - self.num_accounts as usize > 0
+    }
+
+    pub fn set_has_more(&mut self, has_more: bool) {
+        self.has_more = match has_more {
+            true => 1,
+            false => 0,
+        };
+    }
+
+    pub fn add_account(&mut self, pubkey: &Pubkey, writable: bool) -> Result<()> {
+        if self.num_accounts >= MAX_ACCOUNTS as u32 {
+            msg!("Cannot write another account");
+            return Err(ProgramError::InvalidInstructionData.into());
+        }
+
+        self.accounts[self.num_accounts as usize] = *pubkey;
+        self.writable_bits[self.num_accounts as usize] = match writable {
+            true => 1,
+            false => 0,
+        };
+        self.num_accounts += 1;
+        Ok(())
+    }
+
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = (&Pubkey, bool)> {
+        let num_accounts = self.num_accounts as usize;
+        self.accounts[0..num_accounts]
+            .iter()
+            .zip(self.writable_bits[0..num_accounts].iter())
+            .map(|(pubkey, writable)| {
+                (
+                    pubkey,
+                    match writable {
+                        0 => false,
+                        1 => true,
+                        _ => panic!("Invalid writable bit"),
+                    },
+                )
+            })
+    }
+
+    pub fn from_return_data(data: &[u8]) -> Result<&Self> {
+        if data.len() != MAX_RETURN_DATA {
+            msg!("Invalid return data length");
+            return Err(ProgramError::InvalidAccountData.into());
+        }
+        Ok(bytemuck::from_bytes::<AdditionalAccounts>(&data))
+    }
+}
+
+#[derive(Debug, Clone, Copy, AnchorDeserialize, AnchorSerialize)]
 pub struct AdditionalAccountsRequest {
     pub accounts: AdditionalAccounts,
     pub page: u8,
 }
 
-#[derive(Debug, Clone, AnchorDeserialize, AnchorSerialize)]
-pub struct AdditionalAccounts {
-    pub accounts: Vec<IAccountMeta>,
-    pub has_more: bool,
-}
+/// Resolves the page of accounts for a particular instruction
+pub fn resolve_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
+    ix_name: String,
+    ctx: &CpiContext<'_, '_, '_, 'info, C1>,
+    args: &[u8],
+    page: u8,
+    log_info: bool,
+) -> Result<AdditionalAccounts> {
+    call_preflight_interface_function(ix_name.clone(), &ctx, &args, page)?;
 
-const MAX_ACCOUNTS: usize = 29;
+    let program_key = ctx.program.key();
+    let (key, program_data) = get_return_data().unwrap();
+    assert_eq!(key, program_key);
 
-impl AdditionalAccounts {
-    pub fn page_to(&mut self, requested_page: u8) -> Result<()> {
-        if requested_page * 29 > self.accounts.len() as u8 {
-            msg!("Invalid page");
-            return Err(ProgramError::Custom(696969).into());
-        }
-        // In case we return to a previous page, we need to remove all accounts
-        if requested_page > 0 {
-            self.accounts
-                .drain(0..requested_page as usize * MAX_ACCOUNTS);
-        }
-        if self.accounts.len() > MAX_ACCOUNTS {
-            self.accounts.truncate(self.accounts.len() - MAX_ACCOUNTS);
-        }
-        Ok(())
+    let program_data = program_data.as_slice();
+    if log_info {
+        msg!("Return data length: {}", program_data.len());
     }
 
-    // pub fn set_return_data(&self) {
-    //     let mut data = [0u8; MAX_RETURN_DATA];
-
-    //     let writer = &mut data;
-    //     let len_bytes = (self.accounts.len() as u32).to_le_bytes();
-    //     for (i, byte) in len_bytes.iter().enumerate() {
-    //         writer[i] = *byte;
-    //     }
-
-    //     for i in 0..self.accounts.len() {
-    //         let account = self.accounts.get(i).unwrap();
-    //         let account_key_bytes = bytemuck::bytes_of(&account.pubkey);
-
-    //         let start_idx = 4 + 34 * i;
-    //         for (j, byte) in account_key_bytes.iter().enumerate() {
-    //             writer[start_idx + j] = *byte;
-    //         }
-
-    //         writer[start_idx + 32] = if account.signer { 1 } else { 0 };
-    //         writer[start_idx + 33] = if account.writable { 1 } else { 0 };
-    //     }
-
-    //     set_return_data(&data);
-    // }
+    // Program return data actually may be unaligned on the stack
+    // so we can't do our normal bytemuck::from_bytes call here
+    let accs: AdditionalAccounts = bytemuck::pod_read_unaligned::<AdditionalAccounts>(program_data);
+    if log_info {
+        msg!("Page: {} {} {}", page, accs.has_more, accs.accounts.len());
+    }
+    Ok(accs)
 }
 
+/// Returns the additional accounts needed to execute the instruction
+/// Will only return up to MAX_ACCOUNTS accounts.
 pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     ix_name: String,
     ctx: &CpiContext<'_, '_, '_, 'info, C1>,
     args: &[u8],
     log_info: bool,
-) -> Result<AdditionalAccounts> {
+) -> Result<Vec<AdditionalAccounts>> {
     if log_info {
         msg!("Preflight {}", &ix_name);
     }
 
-    let mut additional_accounts: Vec<IAccountMeta> = vec![];
+    let mut additional_accounts: Vec<AdditionalAccounts> = vec![];
 
+    // This is really meant to page all accounts, page by page
+    // to get all the account metas to send
     let mut has_more = true;
     let mut page = 0;
     while has_more {
-        if log_info {
-            msg!("Page: {} {} {}", page, has_more, additional_accounts.len());
-        }
-        call_preflight_interface_function(ix_name.clone(), &ctx, &args, page)?;
+        let accs = resolve_additional_accounts(ix_name.clone(), ctx, args, page, log_info)?;
 
-        let program_key = ctx.program.key();
-        let (key, program_data) = get_return_data().unwrap();
-        assert_eq!(key, program_key);
+        additional_accounts.push(accs);
 
-        let program_data = program_data.as_slice();
-        if log_info {
-            msg!("Return data length: {}", program_data.len());
-        }
-        let accs = AdditionalAccounts::try_from_slice(&program_data)?;
-        // if log_info {
-        //     msg!("Additional accounts: {:?}", &accs);
-        // }
-
-        additional_accounts.extend(accs.accounts);
-
+        // If we are missing any of the requested accounts, we should exit
         let mut should_exit = false;
-        additional_accounts.iter().rev().for_each(|acc| {
+        accs.iter().rev().for_each(|(acc, _writable)| {
             let mut found = false;
             ctx.remaining_accounts.iter().rev().for_each(|account| {
-                if account.key == &acc.pubkey {
+                if account.key == acc {
                     found = true;
                 }
             });
@@ -123,14 +178,11 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
             break;
         }
 
-        has_more = accs.has_more;
+        has_more = accs.has_more == 1;
         page += 1;
     }
 
-    Ok(AdditionalAccounts {
-        accounts: additional_accounts,
-        has_more,
-    })
+    Ok(additional_accounts)
 }
 
 /// This calls the preflight function on the target program (defined on the ctx)
@@ -173,7 +225,7 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
     function_name: String,
     ctx: CpiContext<'_, '_, '_, 'info, T>,
     args: &[u8],
-    additional_accounts: Vec<IAccountMeta>,
+    additional_accounts: &mut dyn Iterator<Item = (&Pubkey, bool)>,
     log_info: bool,
 ) -> Result<()> {
     if log_info {
@@ -194,12 +246,11 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
     let mut ix_account_metas = ctx.accounts.to_account_metas(None);
     ix_account_metas.append(
         additional_accounts
-            .iter()
-            .map(|acc| {
-                if acc.writable {
-                    AccountMeta::new(acc.pubkey, acc.signer)
+            .map(|(acc, writable)| {
+                if writable {
+                    AccountMeta::new(*acc, false)
                 } else {
-                    AccountMeta::new_readonly(acc.pubkey, acc.signer)
+                    AccountMeta::new_readonly(*acc, false)
                 }
             })
             .collect::<Vec<AccountMeta>>()
@@ -275,13 +326,8 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     if log_info {
         msg!("Execute {}", &ix_name);
     }
-    call_interface_function(
-        ix_name.clone(),
-        ctx,
-        &args,
-        additional_accounts.accounts,
-        log_info,
-    )?;
+    let iter = &mut additional_accounts.iter().flat_map(|accs| accs.iter());
+    call_interface_function(ix_name.clone(), ctx, &args, iter, log_info)?;
     Ok(())
 }
 

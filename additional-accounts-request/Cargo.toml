@@ -8,3 +8,9 @@ edition = "2021"
 [dependencies]
 anchor-lang = { version="0.29.0", features=["event-cpi"]}
 bytemuck = "1.8.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]

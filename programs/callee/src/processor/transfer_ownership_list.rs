@@ -1,5 +1,5 @@
 use crate::state::OwnershipList;
-use additional_accounts_request::{AdditionalAccounts, IAccountMeta};
+use additional_accounts_request::{AdditionalAccounts, MAX_ACCOUNTS};
 use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 
 #[derive(Accounts)]
@@ -37,21 +37,17 @@ pub fn preflight_transfer_ownership_list<'info>(
     page: u8,
 ) -> Result<()> {
     let ownership_list = &ctx.accounts.ownership_list;
-    let mut additional_accounts = AdditionalAccounts {
-        accounts: ownership_list
-            .accounts
-            .iter()
-            .map(|key| IAccountMeta {
-                pubkey: *key,
-                signer: false,
-                writable: false,
-            })
-            .collect(),
-        has_more: false,
-    };
-    additional_accounts.page_to(page)?;
-    let return_data = additional_accounts.try_to_vec().unwrap();
-    msg!("additional_accounts serialized size: {}", return_data.len());
-    set_return_data(&return_data);
+    let mut additional_accounts = AdditionalAccounts::new();
+    ownership_list.accounts[MAX_ACCOUNTS * page as usize
+        ..(MAX_ACCOUNTS * (page as usize + 1)).min(ownership_list.accounts.len())]
+        .iter()
+        .for_each(|key| additional_accounts.add_account(&key, false).unwrap());
+    msg!(
+        "additional_accounts serialized size: {}",
+        additional_accounts.num_accounts
+    );
+    let bytes = bytemuck::bytes_of(&additional_accounts);
+    msg!("additional_accounts serialized: {}", bytes.len());
+    set_return_data(bytes);
     Ok(())
 }

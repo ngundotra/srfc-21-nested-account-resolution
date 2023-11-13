@@ -19,3 +19,4 @@ default = []
 anchor-lang = "0.29.0"
 caller = { version = "0.1.0", path = "../caller", features=["no-entrypoint"] }
 additional-accounts-request = { version = "0.1.0", path = "../../additional-accounts-request" }
+bytemuck = "1.8.0"

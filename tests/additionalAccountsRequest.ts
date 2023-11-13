@@ -7,7 +7,7 @@ type AdditionalAccounts = {
   hasMore: boolean;
 };
 
-const MAX_ACCOUNTS = 29;
+const MAX_ACCOUNTS = 30;
 
 /**
  *
@@ -84,26 +84,34 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
       );
     }
 
+    if (data.length !== 1024) {
+      throw new Error(
+        `Return data incorrect size in preflight simulation:
+      ${data.length} (expected 1024)`
+      );
+    }
+
     // We start deserializing the Vec<IAccountMeta> from the 5th byte
     // The first 4 bytes are u32 for the Vec of the return data
-    let numBytes = data.slice(0, 4);
-    let numMetas = new anchor.BN(numBytes, null, "le");
-    let offset = 4;
+    let protocolVersion = data[0];
+    let hasMore = data[1];
+    let numAccounts = data.slice(4, 8);
+    let numMetas = new anchor.BN(numAccounts, null, "le");
 
+    let offset = 8;
     let realAccountMetas: anchor.web3.AccountMeta[] = [];
-    let coder = program.coder.types;
-    const metaSize = 34;
     for (let i = 0; i < numMetas.toNumber(); i += 1) {
-      const start = offset + i * metaSize;
-      const end = start + metaSize;
-      let meta = coder.decode("ExternalIAccountMeta", data.slice(start, end));
+      let pubkey = new anchor.web3.PublicKey(
+        data.slice(offset + i * 32, offset + (i + 1) * 32)
+      );
+      let writable = data[offset + MAX_ACCOUNTS * 32 + i];
       realAccountMetas.push({
-        pubkey: meta.pubkey,
-        isWritable: meta.writable,
-        isSigner: meta.signer,
+        pubkey,
+        isWritable: writable === 1,
+        isSigner: false,
       });
     }
-    let hasMore = data.slice(offset + numMetas.toNumber() * metaSize)[0];
+    // let hasMore = data.slice(offset + numMetas.toNumber() * metaSize)[0];
 
     // if (verbose) {
     //   console.log("num metas:", numMetas.toNumber());
