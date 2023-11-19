@@ -43,6 +43,25 @@ Cons:
 - potentially unsafe to build marketplaces because the bag of unknown accounts can grow dramatically
 
 
+# Note to Self
+
+- `git stash pop` to get iterative stuff back
+- Right now I'm in the middle of switching all `execute` paths to just give all remaining accounts to each program
+
+# Results
+
 Iterative:
 Linked List (CPI)
 { num: 3, computeUnits: 24637 }
+
+Paged Preflight:
+
+Linked List:
+TLI: { num: 2, computeUnits: 16173 }
+CPI: { num: 2, computeUnits: 63378 }
+CPI-CPI: { num: 2, computeUnits: 116856 }
+
+Ownership List
+TLI: { num: 3, computeUnits: 3480 }
+CPI: { num: 3, computeUnits: 30747 }
+CPI-CPI: { num: 3, computeUnits: 66301 }

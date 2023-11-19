@@ -354,7 +354,6 @@ describe("nested-account-resolution", () => {
             true
           );
           ix = _ix;
-          console.log("Sending with lookup table:", lookupTable.toString());
 
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {

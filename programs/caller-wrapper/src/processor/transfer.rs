@@ -34,7 +34,7 @@ pub fn preflight_transfer<'info>(
             ITransferAnything {
                 program: ctx.accounts.program.clone(),
                 owner: ctx.accounts.owner.clone(),
-                object: ctx.accounts.head.clone(),
+                object: ctx.accounts.object.clone(),
                 destination: ctx.accounts.destination.clone(),
             },
         )
