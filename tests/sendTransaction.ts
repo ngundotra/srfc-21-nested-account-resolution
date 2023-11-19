@@ -14,9 +14,9 @@ export const PRE_INSTRUCTIONS = [
     units: 1_400_000,
   }),
   // Only need this is we consume too much heap while resolving / identifying accounts
-  // anchor.web3.ComputeBudgetProgram.requestHeapFrame({
-  //   bytes: 1024 * 32 * 6,
-  // }),
+  anchor.web3.ComputeBudgetProgram.requestHeapFrame({
+    bytes: 1024 * 32 * 8,
+  }),
 ];
 
 export async function sendTransaction(
@@ -43,58 +43,73 @@ export async function sendTransaction(
     ).value;
   }
 
-  let message = anchor.web3.MessageV0.compile({
-    payerKey: kp.publicKey,
-    instructions: PRE_INSTRUCTIONS.concat(ixs),
-    addressLookupTableAccounts: lookupTable ? [lookupTable] : undefined,
-    recentBlockhash: (await connection.getRecentBlockhash()).blockhash,
-  });
-  let transaction = new anchor.web3.VersionedTransaction(message);
-
-  if (opts.simulate) {
-    let simulationResult = await connection.simulateTransaction(transaction, {
-      commitment: "confirmed",
-    });
-
-    if (opts.logs) {
-      console.log(simulationResult.value.logs.join("\n"));
-    }
-
-    return { computeUnits: simulationResult.value.unitsConsumed };
-  } else {
-    transaction.sign([kp]);
-
-    let serialized = transaction.serialize();
-    let txid = await connection.sendRawTransaction(serialized, {
-      skipPreflight: true,
-    });
-
-    if (opts.verbose) {
-      console.log({
-        serialized: serialized.length,
-        keys: ixs[ixs.length - 1].keys.length,
+  let numReplays = 0;
+  while (numReplays < 3) {
+    try {
+      let message = anchor.web3.MessageV0.compile({
+        payerKey: kp.publicKey,
+        instructions: PRE_INSTRUCTIONS.concat(ixs),
+        addressLookupTableAccounts: lookupTable ? [lookupTable] : undefined,
+        recentBlockhash: (await connection.getRecentBlockhash()).blockhash,
       });
-      console.log({ txid });
+      let transaction = new anchor.web3.VersionedTransaction(message);
+
+      if (opts.simulate) {
+        let simulationResult = await connection.simulateTransaction(
+          transaction,
+          {
+            commitment: "confirmed",
+          }
+        );
+
+        if (opts.logs) {
+          console.log(simulationResult.value.logs.join("\n"));
+        }
+
+        return { computeUnits: simulationResult.value.unitsConsumed };
+      } else {
+        transaction.sign([kp]);
+
+        let serialized = transaction.serialize();
+        let txid = await connection.sendRawTransaction(serialized, {
+          skipPreflight: true,
+        });
+
+        if (opts.verbose) {
+          console.log({
+            serialized: serialized.length,
+            keys: ixs[ixs.length - 1].keys.length,
+          });
+          console.log({ txid });
+        }
+
+        await connection.confirmTransaction(txid, "confirmed");
+
+        const txresp = await connection.getTransaction(txid, {
+          commitment: "confirmed",
+          maxSupportedTransactionVersion: 2,
+        });
+
+        if (txresp.meta.err) {
+          console.error(txresp.meta.logMessages.join("\n"));
+        } else if (opts.logs) {
+          console.log(txresp.meta.logMessages.join("\n"));
+        }
+        if (txresp.meta.err) {
+          throw new Error(
+            `Error sending transaction: ${JSON.stringify(txresp.meta.err)}`
+          );
+        }
+
+        return { computeUnits: txresp.meta.computeUnitsConsumed };
+      }
+    } catch (e) {
+      if (e instanceof anchor.web3.TransactionExpiredTimeoutError) {
+        console.log("Retrying transaction");
+        numReplays += 1;
+      } else {
+        throw e;
+      }
     }
-
-    await connection.confirmTransaction(txid, "confirmed");
-
-    const txresp = await connection.getTransaction(txid, {
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 2,
-    });
-
-    if (txresp.meta.err) {
-      console.error(txresp.meta.logMessages.join("\n"));
-    } else if (opts.logs) {
-      console.log(txresp.meta.logMessages.join("\n"));
-    }
-    if (txresp.meta.err) {
-      throw new Error(
-        `Error sending transaction: ${JSON.stringify(txresp.meta.err)}`
-      );
-    }
-
-    return { computeUnits: txresp.meta.computeUnitsConsumed };
   }
 }

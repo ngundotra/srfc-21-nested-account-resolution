@@ -94,6 +94,23 @@ impl AdditionalAccounts {
             })
     }
 
+    pub fn iter_from(&self, start: usize) -> impl DoubleEndedIterator<Item = (&Pubkey, bool)> {
+        let num_accounts = self.num_accounts as usize;
+        self.accounts[start..num_accounts]
+            .iter()
+            .zip(self.writable_bits[0..num_accounts].iter())
+            .map(|(pubkey, writable)| {
+                (
+                    pubkey,
+                    match writable {
+                        0 => false,
+                        1 => true,
+                        _ => panic!("Invalid writable bit"),
+                    },
+                )
+            })
+    }
+
     pub fn from_return_data(data: &[u8]) -> Result<&Self> {
         if data.len() != MAX_RETURN_DATA {
             msg!("Invalid return data length");

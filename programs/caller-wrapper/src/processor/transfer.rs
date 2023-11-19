@@ -2,7 +2,10 @@ use additional_accounts_request::{
     call, forward_return_data, identify_additional_accounts, resolve_additional_accounts,
     AdditionalAccountsRequest, InterfaceInstruction,
 };
-use anchor_lang::{prelude::*, solana_program::program::set_return_data};
+use anchor_lang::{
+    prelude::*,
+    solana_program::{instruction::Instruction, program::set_return_data},
+};
 use caller::interface::instructions::ITransferAnything;
 
 #[derive(Accounts)]
@@ -15,7 +18,7 @@ pub struct Transfer<'info> {
     owner: Signer<'info>,
     /// CHECK:
     #[account(mut)]
-    head: AccountInfo<'info>,
+    object: AccountInfo<'info>,
     /// CHECK:
     destination: AccountInfo<'info>,
 }
@@ -57,7 +60,7 @@ pub fn transfer<'info>(ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>) -> R
         ITransferAnything {
             program: ctx.accounts.program.to_account_info(),
             owner: ctx.accounts.owner.clone(),
-            object: ctx.accounts.head.clone(),
+            object: ctx.accounts.object.clone(),
             destination: ctx.accounts.destination.clone(),
         },
     )

@@ -5,7 +5,8 @@ import { Callee } from "../target/types/callee";
 import { assert } from "chai";
 import { additionalAccountsRequest } from "./additionalAccountsRequest";
 import { Caller } from "../target/types/caller";
-import { sendTransaction } from "./sendTransaction";
+import { PRE_INSTRUCTIONS, sendTransaction } from "./sendTransaction";
+import { sha256 } from "@noble/hashes/sha256";
 
 async function validateTransfer(
   program: anchor.Program<Callee>,
@@ -40,9 +41,51 @@ describe("nested-account-resolution", () => {
   const provider = anchor.getProvider();
   const payer = provider.publicKey;
 
+  describe("Base costs", () => {
+    it("Return data 1024", async () => {
+      async function getCost(amount: 0 | 512 | 1024) {
+        let ix = await program.methods
+          .returnData(amount)
+          .accounts({})
+          .instruction();
+        return (await sendTransaction(provider.connection, [ix], {}))
+          .computeUnits;
+      }
+
+      let costs = [await getCost(0), await getCost(512), await getCost(1024)];
+      console.log(costs);
+      console.log(
+        `Deltas: ${(costs[1] - costs[0]) / 512}, ${
+          (costs[2] - costs[1]) / 1024
+        }`
+      );
+    });
+    it("Return data with CPI", async () => {
+      async function getCost(amount: 0 | 512 | 1024) {
+        let ix = await caller.methods
+          .returnData(amount)
+          .accounts({
+            program: program.programId,
+          })
+          .instruction();
+        return (await sendTransaction(provider.connection, [ix], {}))
+          .computeUnits;
+      }
+
+      let costs = [await getCost(0), await getCost(512), await getCost(1024)];
+      console.log(costs);
+      console.log(
+        `Deltas: ${(costs[1] - costs[0]) / 512}, ${
+          (costs[2] - costs[1]) / 1024
+        }`
+      );
+    });
+    // it("");
+  });
+
   let destinationKp = anchor.web3.Keypair.generate();
   let destination = destinationKp.publicKey;
-  describe.skip("Linked list tests", () => {
+  describe("Linked list tests", () => {
     it("Can initialize a linked list with 1 node", async () => {
       const nodeKp = anchor.web3.Keypair.generate();
       let headNode = nodeKp.publicKey;
@@ -86,7 +129,8 @@ describe("nested-account-resolution", () => {
       await validateTransfer(program, [nodeKp], 1);
     });
 
-    for (let i = 2; i < 11; i++) {
+    // for (let i = 2; i < 11; i++) {
+    for (let i = 2; i < 3; i++) {
       const NUM_NODES = i;
       describe(`With ${NUM_NODES} nodes`, () => {
         let headNode: anchor.web3.PublicKey;
@@ -162,6 +206,7 @@ describe("nested-account-resolution", () => {
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
+              verbose: true,
             })
           ).computeUnits;
 
@@ -177,7 +222,7 @@ describe("nested-account-resolution", () => {
             .accounts({
               delegateProgram: caller.programId,
               program: program.programId,
-              head: headNode,
+              object: headNode,
               owner: payer,
               destination,
             })
@@ -204,7 +249,12 @@ describe("nested-account-resolution", () => {
     }
   });
   describe("Ownership List tests", () => {
-    for (let i = 29; i < 30; i++) {
+    // for (let i = 31; i < ; i++) {
+    // // for (let i = 31; i < ; i++) {
+    // for (const i of [131, 200, 230]) {
+    // for (const i of [125]) (works on devnet account resolution)
+    // for (const i of [31]) {
+    for (const i of [3]) {
       const NUM_NODES = i;
 
       describe(`With ${NUM_NODES} nodes`, () => {
@@ -220,6 +270,7 @@ describe("nested-account-resolution", () => {
               payer,
               ownershipList,
             })
+            .preInstructions(PRE_INSTRUCTIONS)
             .signers([ownershipListKp])
             .rpc({ skipPreflight: false, commitment: "confirmed" });
         });
@@ -245,6 +296,7 @@ describe("nested-account-resolution", () => {
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
+              verbose: true,
             })
           ).computeUnits;
 
@@ -262,7 +314,6 @@ describe("nested-account-resolution", () => {
             })
             .instruction();
 
-          const originalKeys = ix.keys;
           const { ix: _ix, lookupTable } = await additionalAccountsRequest(
             caller,
             ix,
@@ -275,20 +326,21 @@ describe("nested-account-resolution", () => {
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
+              verbose: true,
             })
           ).computeUnits;
 
           console.log({ num: NUM_NODES, computeUnits });
         });
 
-        it(`Can transfer a linked list (${NUM_NODES}) via CPI-CPI`, async () => {
+        it(`Can transfer an ownership list (${NUM_NODES}) via CPI-CPI`, async () => {
           // Now perform the thing
           let ix = await callerWrapper.methods
             .transfer()
             .accounts({
               delegateProgram: caller.programId,
               program: program.programId,
-              head: ownershipList,
+              object: ownershipList,
               owner: payer,
               destination,
             })

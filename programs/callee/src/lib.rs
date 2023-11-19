@@ -8,6 +8,7 @@ pub mod state;
 // Please remove once ExternalIAccountMeta is a normal type in Anchor
 use processor::create_linked_list::*;
 use processor::create_ownership_list::*;
+use processor::return_data::*;
 use processor::transfer_linked_list::*;
 use processor::transfer_ownership_list::*;
 
@@ -67,5 +68,11 @@ pub mod callee {
         num: u32,
     ) -> Result<()> {
         processor::create_ownership_list::create_ownership_list(ctx, num)
+    }
+
+    /// Utilities
+    /// Return data
+    pub fn return_data<'info>(ctx: Context<'_, '_, 'info, 'info, Noop>, amount: u32) -> Result<()> {
+        processor::return_data::return_data(ctx, amount)
     }
 }

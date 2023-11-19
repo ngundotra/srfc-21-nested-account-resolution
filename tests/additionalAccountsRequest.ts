@@ -11,7 +11,7 @@ const MAX_ACCOUNTS = 30;
 
 /**
  *
- * @param program Assumes this program's IDL has `ExternalIAccountMeta` defined (copy of `IAccountMeta`)
+ * @param program
  * @param instructions
  * @returns
  */
@@ -45,6 +45,7 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
       .blockhash,
   });
   let transaction = new anchor.web3.VersionedTransaction(message);
+
   let simulationResult = await program.provider.connection.simulateTransaction(
     transaction,
     {
@@ -55,6 +56,7 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
   if (verbose) {
     console.log("CUs consumed:", simulationResult.value.unitsConsumed);
     console.log("Logs", simulationResult.value.logs);
+    console.log("Result", simulationResult.value.err);
   }
 
   // When the simulation RPC response is fixed, then the following code will work
@@ -94,6 +96,11 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
     // We start deserializing the Vec<IAccountMeta> from the 5th byte
     // The first 4 bytes are u32 for the Vec of the return data
     let protocolVersion = data[0];
+    if (protocolVersion !== 0) {
+      throw new Error(
+        `Unsupported Account Resolution Protocol version: ${protocolVersion}`
+      );
+    }
     let hasMore = data[1];
     let numAccounts = data.slice(4, 8);
     let numMetas = new anchor.BN(numAccounts, null, "le");
@@ -111,19 +118,7 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
         isSigner: false,
       });
     }
-    // let hasMore = data.slice(offset + numMetas.toNumber() * metaSize)[0];
 
-    // if (verbose) {
-    //   console.log("num metas:", numMetas.toNumber());
-    //   console.log("offset", numMetas.toNumber() * metaSize + offset);
-    //   console.log("length", data.length);
-    //   console.log(
-    //     "Remaining bytes:",
-    //     data.slice(offset + numMetas.toNumber() * metaSize)
-    //   );
-
-    //   console.log("hasMore", hasMore);
-    // }
     return {
       accounts: realAccountMetas,
       hasMore: hasMore != 0,
@@ -132,6 +127,51 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
     throw new Error(
       "Failed to parse return data: " + e + "\n" + logs.join("\n")
     );
+  }
+}
+
+async function extendLookupTable<I extends anchor.Idl>(
+  additionalAccounts: anchor.web3.AccountMeta[][],
+  lastSize: number,
+  program: anchor.Program<I>,
+  lookupTable: anchor.web3.PublicKey
+): Promise<number> {
+  while (additionalAccounts.flat().length - lastSize) {
+    const batchSize = Math.min(29, additionalAccounts.flat().length - lastSize);
+
+    const ix = anchor.web3.AddressLookupTableProgram.extendLookupTable({
+      authority: program.provider.publicKey!,
+      payer: program.provider.publicKey!,
+      addresses: additionalAccounts
+        .flat()
+        .slice(lastSize, lastSize + batchSize)
+        .map((acc) => acc.pubkey),
+      lookupTable,
+    });
+
+    await sendTransaction(program.provider.connection, [ix]);
+    lastSize += batchSize;
+  }
+  return lastSize;
+}
+
+async function pollForActiveLookupTable(
+  additionalAccounts: anchor.web3.AccountMeta[][],
+  program: anchor.Program<any>,
+  lookupTable: anchor.web3.PublicKey
+) {
+  let activeSlut = false;
+  while (!activeSlut) {
+    let table = await program.provider.connection.getAddressLookupTable(
+      lookupTable,
+      { commitment: "finalized" }
+    );
+    if (table.value) {
+      activeSlut =
+        table.value.isActive() &&
+        table.value.state.addresses.length === additionalAccounts.flat().length;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }
 
@@ -167,10 +207,6 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   );
   currentBuffer.set(newIxDisc, 0);
 
-  if (verbose) {
-    console.log("\tix", instruction.data.toString("hex"));
-  }
-
   let additionalAccounts: anchor.web3.AccountMeta[][] = [[]];
   let hasMore = true;
   let page = 0;
@@ -191,15 +227,13 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
 
     // Add found accounts to instruction
     instruction.keys = originalKeys.concat(additionalAccounts.flat());
+
     let result = await resolveRemainingAccounts(
       program,
       [instruction],
-      false,
+      verbose,
       lookupTable
     );
-    // if (verbose) {
-    //   console.log(`Preflight result: ${JSON.stringify(result)} (${i})`);
-    // }
 
     if (verbose) {
       console.log(`Page: ${page} | requested: ${result.accounts.length}`);
@@ -222,20 +256,13 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
         lookupTable = tableAddr;
       }
 
-      if (additionalAccounts.flat().length - lastSize > 10) {
-        const ix = anchor.web3.AddressLookupTableProgram.extendLookupTable({
-          authority: program.provider.publicKey!,
-          payer: program.provider.publicKey!,
-          addresses: additionalAccounts
-            .flat()
-            .slice(lastSize)
-            .map((acc) => acc.pubkey),
-          lookupTable,
-        });
-
-        await sendTransaction(program.provider.connection, [ix]);
-        lastSize = additionalAccounts.flat().length;
-      }
+      lastSize = await extendLookupTable(
+        additionalAccounts,
+        lastSize,
+        program,
+        lookupTable
+      );
+      await pollForActiveLookupTable(additionalAccounts, program, lookupTable);
     }
 
     i++;
@@ -247,18 +274,9 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
     }
   }
 
-  if (slut && lookupTable && additionalAccounts.flat().length - lastSize > 0) {
-    const ix = anchor.web3.AddressLookupTableProgram.extendLookupTable({
-      authority: program.provider.publicKey!,
-      payer: program.provider.publicKey!,
-      addresses: additionalAccounts
-        .flat()
-        .slice(lastSize)
-        .map((acc) => acc.pubkey),
-      lookupTable,
-    });
-
-    await sendTransaction(program.provider.connection, [ix]);
+  if (slut && lookupTable) {
+    await extendLookupTable(additionalAccounts, lastSize, program, lookupTable);
+    await pollForActiveLookupTable(additionalAccounts, program, lookupTable);
   }
 
   instruction.keys = originalKeys.concat(additionalAccounts.flat());
@@ -266,21 +284,5 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   // Reset original data
   instruction.data = originalData;
 
-  if (slut && lookupTable) {
-    let activeSlut = false;
-    while (!activeSlut) {
-      let table = await program.provider.connection.getAddressLookupTable(
-        lookupTable,
-        { commitment: "finalized" }
-      );
-      if (table.value) {
-        activeSlut =
-          table.value.isActive() &&
-          table.value.state.addresses.length ===
-            additionalAccounts.flat().length;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-  }
   return { ix: instruction, lookupTable };
 }

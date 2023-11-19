@@ -37,11 +37,25 @@ pub fn preflight_transfer_ownership_list<'info>(
     page: u8,
 ) -> Result<()> {
     let ownership_list = &ctx.accounts.ownership_list;
+
     let mut additional_accounts = AdditionalAccounts::new();
+
+    // Get only relevant page of accounts
     ownership_list.accounts[MAX_ACCOUNTS * page as usize
         ..(MAX_ACCOUNTS * (page as usize + 1)).min(ownership_list.accounts.len())]
         .iter()
         .for_each(|key| additional_accounts.add_account(&key, false).unwrap());
+
+    // Determine if there are more accounts to return
+    let has_more: bool;
+    if ownership_list.accounts.len() > MAX_ACCOUNTS * (page as usize + 1) {
+        has_more = true;
+    } else {
+        has_more = false;
+    }
+    additional_accounts.set_has_more(has_more);
+
+    // Logging
     msg!(
         "additional_accounts serialized size: {}",
         additional_accounts.num_accounts
