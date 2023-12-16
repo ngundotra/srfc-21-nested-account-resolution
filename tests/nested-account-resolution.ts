@@ -41,7 +41,7 @@ describe("nested-account-resolution", () => {
   const provider = anchor.getProvider();
   const payer = provider.publicKey;
 
-  describe.skip("Base costs", () => {
+  describe("Base costs", () => {
     it("Return data 1024", async () => {
       async function getCost(amount: 0 | 512 | 1024) {
         let ix = await program.methods
@@ -84,7 +84,7 @@ describe("nested-account-resolution", () => {
 
   let destinationKp = anchor.web3.Keypair.generate();
   let destination = destinationKp.publicKey;
-  describe.skip("Linked list tests", () => {
+  describe("Linked list tests", () => {
     it("Can initialize a linked list with 1 node", async () => {
       const nodeKp = anchor.web3.Keypair.generate();
       let headNode = nodeKp.publicKey;
@@ -247,7 +247,7 @@ describe("nested-account-resolution", () => {
       });
     }
   });
-  describe.skip("Ownership List tests", () => {
+  describe("Ownership List tests", () => {
     // for (let i = 31; i < ; i++) {
     // // for (let i = 31; i < ; i++) {
     // for (const i of [131, 200, 230]) {
@@ -374,7 +374,7 @@ describe("nested-account-resolution", () => {
     let ownerBKp = anchor.web3.Keypair.generate();
     let ownerB = ownerBKp.publicKey;
 
-    for (const i of [2]) {
+    for (const i of [5, 10, 25]) {
       const NUM_NODES = i;
 
       describe(`With ${NUM_NODES} Accounts`, () => {
@@ -433,7 +433,8 @@ describe("nested-account-resolution", () => {
             caller,
             ix,
             "swap",
-            false
+            false,
+            true
           );
           ix = _ix;
 

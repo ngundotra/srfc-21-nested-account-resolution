@@ -148,3 +148,12 @@ Transferring a Ownership List
 | CPI | 31 | 66755 |
 | CPI-CPI | 3 | 66301 |
 | CPI-CPI | 31 | 119752 |
+
+
+Swapping Ownership Lists
+| Program | Number of Accounts in Ownership List (per side) | Compute Units |
+| ---       | ---                                   | ---------      |
+| CPI       | 3                                     | 29479          |
+| CPI       | 5                                     | 37681          |
+| CPI       | 10                                    | 52649          |
+| CPI       | 25                                    | 108666         |
