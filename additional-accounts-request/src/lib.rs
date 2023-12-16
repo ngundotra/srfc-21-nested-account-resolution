@@ -387,6 +387,10 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
     Ok(())
 }
 
+pub fn get_delimiter(program_id: &Pubkey) -> Pubkey {
+    Pubkey::find_program_address(&["DELIMITER".as_ref()], program_id).0
+}
+
 /// Calls an instruction on a program that complies with the additional accounts interface
 ///
 /// Expects ctx.remaining accounts to have all possible accounts in order to resolve
@@ -401,7 +405,7 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
 ) -> Result<u8> {
     // preflight
     let caller_program_id = ctx.program.key;
-    let delimiter = Pubkey::find_program_address(&["DELIMITER".as_ref()], caller_program_id).0;
+    let delimiter = get_delimiter(caller_program_id);
     let mut accounts = ctx.accounts.to_account_infos();
     let mut metas = ctx.accounts.to_account_metas(None);
 

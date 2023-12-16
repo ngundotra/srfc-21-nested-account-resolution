@@ -4,6 +4,7 @@ pub mod interface;
 pub mod processor;
 
 pub use processor::return_data::*;
+pub use processor::swap::*;
 pub use processor::transfer::*;
 
 declare_id!("8dHQbAAjuxANBSjsEdFMF4d5wMfTS3Ro2DTLaawBLvJ3");
@@ -21,6 +22,10 @@ pub mod caller {
 
     pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {
         processor::transfer::transfer(ctx)
+    }
+
+    pub fn swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Result<()> {
+        processor::swap::swap(ctx)
     }
 
     pub fn return_data<'info>(
