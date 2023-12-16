@@ -6,6 +6,7 @@ type Opts = {
   logs?: boolean;
   simulate?: boolean;
   verbose?: boolean;
+  signers?: anchor.web3.Keypair[];
   lookupTableAddress?: anchor.web3.PublicKey;
 };
 
@@ -69,6 +70,7 @@ export async function sendTransaction(
         return { computeUnits: simulationResult.value.unitsConsumed };
       } else {
         transaction.sign([kp]);
+        transaction.sign(opts.signers ?? []);
 
         let serialized = transaction.serialize();
         let txid = await connection.sendRawTransaction(serialized, {

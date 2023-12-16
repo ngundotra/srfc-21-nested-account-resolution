@@ -19,16 +19,16 @@ pub struct Swap<'info> {
     /// CHECK:
     program: AccountInfo<'info>,
     /// CHECK:
-    ownerA: Signer<'info>,
+    owner_a: Signer<'info>,
     /// CHECK:
     #[account(mut)]
-    objectA: AccountInfo<'info>,
+    object_a: AccountInfo<'info>,
 
     /// CHECK:
-    ownerB: Signer<'info>,
+    owner_b: Signer<'info>,
     /// CHECK:
     #[account(mut)]
-    objectB: AccountInfo<'info>,
+    object_b: AccountInfo<'info>,
 }
 
 fn get_transfer_ix_name(account_disc: &[u8]) -> Result<String> {
@@ -63,56 +63,77 @@ pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Re
             if acc.key() == delimiter {
                 stage += 1;
                 latest_delimiter_idx = i;
+                msg!("Found delimiter at: {}", latest_delimiter_idx);
             }
         });
 
+    msg!(
+        "stage: {} | delimiter idx: {} | accs len: {}",
+        stage,
+        latest_delimiter_idx,
+        ctx.remaining_accounts.len()
+    );
     match stage {
         0 => {
+            let ix_name: String;
+            {
+                ix_name = get_transfer_ix_name(&ctx.accounts.object_a.try_borrow_data()?[0..8])?;
+            }
             let mut additional_accounts = resolve_additional_accounts(
-                get_transfer_ix_name(&ctx.accounts.objectA.try_borrow_data()?[0..8])?,
+                ix_name,
                 &CpiContext::new(
                     ctx.accounts.program.clone(),
                     ITransfer {
-                        owner: ctx.accounts.ownerA.clone(),
-                        object: ctx.accounts.objectA.clone(),
+                        owner: ctx.accounts.owner_a.clone(),
+                        object: ctx.accounts.object_a.clone(),
                     },
                 )
-                .with_remaining_accounts(ctx.remaining_accounts[0..latest_delimiter_idx].to_vec()),
-                &get_transfer_args(ctx.accounts.objectA.key),
+                .with_remaining_accounts(ctx.remaining_accounts.to_vec()),
+                &get_transfer_args(ctx.accounts.object_a.key),
                 false,
             )?;
-
-            // We set set this to true because we have more accounts for our 2nd call
-            additional_accounts.set_has_more(true);
 
             // We can only add delimiter if there is space available.
             // Otherwise we have to wait until another account is requested
             // and then go from there
+            msg!(
+                "has more accounts: {}, has more space: {}, num_accounts: {}",
+                additional_accounts.has_more == 1,
+                additional_accounts.has_space_available(),
+                additional_accounts.num_accounts
+            );
             if !additional_accounts.has_space_available() {
+                additional_accounts.set_has_more(true);
                 set_return_data(bytemuck::bytes_of(&additional_accounts));
                 return Ok(());
             }
 
-            //
+            // If there are no more accounts returned by first call
+            // then we add our delimiter & move on
             if additional_accounts.has_more != 1 {
                 additional_accounts.add_account(&get_delimiter(&crate::id()), false)?;
             }
+            additional_accounts.set_has_more(true);
 
             set_return_data(bytemuck::bytes_of(&additional_accounts));
             Ok(())
         }
         1 => {
+            let ix_name: String;
+            {
+                ix_name = get_transfer_ix_name(&ctx.accounts.object_b.try_borrow_data()?[0..8])?;
+            }
             let mut additional_accounts = resolve_additional_accounts(
-                get_transfer_ix_name(&ctx.accounts.objectB.try_borrow_data()?[0..8])?,
+                ix_name,
                 &CpiContext::new(
                     ctx.accounts.program.clone(),
                     ITransfer {
-                        owner: ctx.accounts.ownerB.clone(),
-                        object: ctx.accounts.objectB.clone(),
+                        owner: ctx.accounts.owner_b.clone(),
+                        object: ctx.accounts.object_b.clone(),
                     },
                 )
                 .with_remaining_accounts(ctx.remaining_accounts[latest_delimiter_idx..].to_vec()),
-                &get_transfer_args(ctx.accounts.objectB.key),
+                &get_transfer_args(ctx.accounts.object_b.key),
                 false,
             )?;
 
@@ -121,8 +142,8 @@ pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Re
                 return Ok(());
             }
 
-            if additional_accounts.has_more != 1 {
-                additional_accounts.add_account(&get_delimiter(&crate::id()), false)?;
+            if additional_accounts.has_more == 0 {
+                additional_accounts.set_has_more(false);
             }
 
             set_return_data(bytemuck::bytes_of(&additional_accounts));
@@ -140,16 +161,21 @@ pub fn swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Result<()> {
     let cpi_ctx = CpiContext::new(
         ctx.accounts.program.clone(),
         ITransfer {
-            owner: ctx.accounts.ownerA.clone(),
-            object: ctx.accounts.objectA.clone(),
+            owner: ctx.accounts.owner_a.clone(),
+            object: ctx.accounts.object_a.clone(),
         },
     )
     .with_remaining_accounts(ctx.remaining_accounts.to_vec());
 
-    let counter = call(
-        get_transfer_ix_name(&ctx.accounts.objectA.try_borrow_data()?[0..8])?,
+    let mut ix_name: String;
+    {
+        ix_name = get_transfer_ix_name(&ctx.accounts.object_a.try_borrow_data()?[0..8])?;
+    }
+    let delimiter_idx = call(
+        ix_name,
         cpi_ctx,
-        ctx.accounts.ownerB.key.try_to_vec().unwrap(),
+        ctx.accounts.owner_b.key.try_to_vec().unwrap(),
+        get_delimiter(&crate::id()),
         0,
         true,
     )?;
@@ -158,17 +184,21 @@ pub fn swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Result<()> {
     let cpi_ctx = CpiContext::new(
         ctx.accounts.program.clone(),
         ITransfer {
-            owner: ctx.accounts.ownerB.clone(),
-            object: ctx.accounts.objectB.clone(),
+            owner: ctx.accounts.owner_b.clone(),
+            object: ctx.accounts.object_b.clone(),
         },
     )
     .with_remaining_accounts(ctx.remaining_accounts.to_vec());
 
+    {
+        ix_name = get_transfer_ix_name(&ctx.accounts.object_b.try_borrow_data()?[0..8])?;
+    }
     call(
-        get_transfer_ix_name(&ctx.accounts.objectB.try_borrow_data()?[0..8])?,
+        ix_name,
         cpi_ctx,
-        ctx.accounts.ownerA.key.try_to_vec().unwrap(),
-        counter,
+        ctx.accounts.owner_a.key.try_to_vec().unwrap(),
+        get_delimiter(&crate::id()),
+        delimiter_idx,
         true,
     )?;
     Ok(())

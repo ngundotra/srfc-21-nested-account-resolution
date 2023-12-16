@@ -1,5 +1,6 @@
 use additional_accounts_request::{
-    call, identify_additional_accounts, resolve_additional_accounts, InterfaceInstruction,
+    call, get_delimiter, identify_additional_accounts, resolve_additional_accounts,
+    InterfaceInstruction,
 };
 use anchor_lang::{
     prelude::*,
@@ -91,6 +92,7 @@ pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Resu
         ix_name,
         cpi_ctx,
         ctx.accounts.destination.key.try_to_vec().unwrap(),
+        get_delimiter(&crate::id()),
         0,
         true,
     )?;

@@ -401,12 +401,11 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     ix_name: String,
     ctx: CpiContext<'_, '_, '_, 'info, C1>,
     args: Vec<u8>,
-    counter: u8,
+    delimiter: Pubkey,
+    num_accounts_consumed: u8,
     log_info: bool,
 ) -> Result<u8> {
     // preflight
-    let caller_program_id = ctx.program.key;
-    let delimiter = get_delimiter(caller_program_id);
     let mut accounts = ctx.accounts.to_account_infos();
     let mut metas = ctx.accounts.to_account_metas(None);
 
@@ -414,29 +413,23 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
         msg!("Identifying additional accounts...");
         sol_log_compute_units();
     }
-    let mut seen = 0;
-    ctx.remaining_accounts
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| *i >= counter as usize)
-        .for_each(|(_, acc)| {
+    let mut used_accounts = 0;
+    for acc in ctx.remaining_accounts[num_accounts_consumed as usize..].iter() {
+        used_accounts += 1;
+        if *acc.key != delimiter {
+            accounts.push(acc.clone());
+            metas.push(AccountMeta {
+                pubkey: *acc.key,
+                is_signer: acc.is_signer,
+                is_writable: acc.is_writable,
+            });
+        } else {
             if log_info {
-                msg!("Account: {}", acc.key)
+                msg!("Found delimiter");
             }
-            if *acc.key != delimiter {
-                accounts.push(acc.clone());
-                metas.push(AccountMeta {
-                    pubkey: *acc.key,
-                    is_signer: acc.is_signer,
-                    is_writable: acc.is_writable,
-                });
-            } else {
-                if log_info {
-                    msg!("Found delimiter");
-                }
-                seen += 1;
-            }
-        });
+            break;
+        }
+    }
 
     // execute
     if log_info {
@@ -452,7 +445,7 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
         ctx.signer_seeds,
         log_info,
     )?;
-    Ok(counter + 1)
+    Ok(num_accounts_consumed + used_accounts)
 }
 
 pub fn call_v0<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(

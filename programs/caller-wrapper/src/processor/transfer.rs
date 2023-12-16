@@ -1,6 +1,6 @@
 use additional_accounts_request::{
-    call, forward_return_data, identify_additional_accounts, resolve_additional_accounts,
-    AdditionalAccountsRequest, InterfaceInstruction,
+    call, forward_return_data, get_delimiter, identify_additional_accounts,
+    resolve_additional_accounts, AdditionalAccountsRequest, InterfaceInstruction,
 };
 use anchor_lang::{
     prelude::*,
@@ -61,6 +61,7 @@ pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Resu
         ITransferAnything::instruction_name(),
         cpi_ctx,
         vec![],
+        get_delimiter(&crate::id()),
         0,
         false,
     )?;

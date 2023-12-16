@@ -23,6 +23,10 @@ pub mod caller {
         processor::transfer::transfer(ctx)
     }
 
+    pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Result<()> {
+        processor::swap::preflight_swap(ctx)
+    }
+
     pub fn swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Result<()> {
         processor::swap::swap(ctx)
     }

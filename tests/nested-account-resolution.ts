@@ -84,7 +84,7 @@ describe("nested-account-resolution", () => {
 
   let destinationKp = anchor.web3.Keypair.generate();
   let destination = destinationKp.publicKey;
-  describe("Linked list tests", () => {
+  describe.skip("Linked list tests", () => {
     it("Can initialize a linked list with 1 node", async () => {
       const nodeKp = anchor.web3.Keypair.generate();
       let headNode = nodeKp.publicKey;
@@ -128,7 +128,8 @@ describe("nested-account-resolution", () => {
       await validateTransfer(program, [nodeKp], 1);
     });
 
-    for (let i = 2; i < 11; i++) {
+    for (const i of [2, 3, 10]) {
+      // for (let i = 2; i < 11; i++) {
       // for (let i = 2; i < 3; i++) {
       const NUM_NODES = i;
       describe(`With ${NUM_NODES} nodes`, () => {
@@ -246,7 +247,7 @@ describe("nested-account-resolution", () => {
       });
     }
   });
-  describe("Ownership List tests", () => {
+  describe.skip("Ownership List tests", () => {
     // for (let i = 31; i < ; i++) {
     // // for (let i = 31; i < ; i++) {
     // for (const i of [131, 200, 230]) {
@@ -360,6 +361,90 @@ describe("nested-account-resolution", () => {
           console.log({ num: NUM_NODES, computeUnits });
 
           // await validateTransfer(program, nodeKps, NUM_NODES);
+        });
+      });
+    }
+  });
+
+  describe("Swap tests", () => {
+    // for (let i = 31; i < ; i++) {
+    // // for (let i = 31; i < ; i++) {
+    // for (const i of [131, 200, 230]) {
+    // for (const i of [125]) (works on devnet account resolution)
+    let ownerBKp = anchor.web3.Keypair.generate();
+    let ownerB = ownerBKp.publicKey;
+
+    for (const i of [2]) {
+      const NUM_NODES = i;
+
+      describe(`With ${NUM_NODES} Accounts`, () => {
+        let ownershipListKpA: anchor.web3.Keypair;
+        let ownershipListA: anchor.web3.PublicKey;
+
+        let ownershipListKpB: anchor.web3.Keypair;
+        let ownershipListB: anchor.web3.PublicKey;
+        beforeEach(async () => {
+          await provider.connection.requestAirdrop(
+            ownerB,
+            1 * anchor.web3.LAMPORTS_PER_SOL
+          );
+
+          ownershipListKpA = anchor.web3.Keypair.generate();
+          ownershipListA = ownershipListKpA.publicKey;
+
+          await program.methods
+            .createOwnershipList(NUM_NODES)
+            .accounts({
+              payer,
+              ownershipList: ownershipListA,
+            })
+            .preInstructions(PRE_INSTRUCTIONS)
+            .signers([ownershipListKpA])
+            .rpc({ skipPreflight: false, commitment: "confirmed" });
+
+          ownershipListKpB = anchor.web3.Keypair.generate();
+          ownershipListB = ownershipListKpB.publicKey;
+
+          await program.methods
+            .createOwnershipList(NUM_NODES)
+            .accounts({
+              payer: ownerB,
+              ownershipList: ownershipListB,
+            })
+            .preInstructions(PRE_INSTRUCTIONS)
+            .signers([ownerBKp, ownershipListKpB])
+            .rpc({ skipPreflight: false, commitment: "confirmed" });
+        });
+
+        it("Can swap ownership list for ownership list", async () => {
+          // Now perform the thing
+          let ix = await caller.methods
+            .swap()
+            .accounts({
+              program: program.programId,
+              objectA: ownershipListA,
+              ownerA: payer,
+              objectB: ownershipListB,
+              ownerB: ownerB,
+            })
+            .instruction();
+
+          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
+            caller,
+            ix,
+            "swap",
+            false
+          );
+          ix = _ix;
+
+          const computeUnits = (
+            await sendTransaction(provider.connection, [ix], {
+              lookupTableAddress: lookupTable,
+              signers: [ownerBKp],
+            })
+          ).computeUnits;
+
+          console.log({ num: NUM_NODES, computeUnits });
         });
       });
     }

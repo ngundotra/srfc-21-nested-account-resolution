@@ -126,13 +126,25 @@ Transferring a Linked List:
 - CPI: { num: 2, computeUnits: 63378 }
 - CPI-CPI: { num: 2, computeUnits: 116856 }
 
-Transferring a Ownership List
-3 
-- Base: { num: 3, computeUnits: 3480 }
-- CPI: { num: 3, computeUnits: 30747 }
-- CPI-CPI: { num: 3, computeUnits: 66301 }
+| Program | Number of Accounts | Compute Units |
+| --- | ---- | ---- |
+| Base | 2 | 16173 |
+| Base | 3 | 17442 |
+| Base | 10 | 26325 |
+| CPI | 2 | 27518 |
+| CPI | 3 | 29491 |
+| CPI | 10 | 44889 |
+| CPI-CPI | 2 | 39016 |
+| CPI-CPI | 3 | 41767 |
+| CPI-CPI | 10 | 63953 |
 
-31 
-- Base { num: 31, computeUnits: 15800 }
-- CPI: { num: 31, computeUnits: 436953 }
-- CPI-CPI: { num: 31, computeUnits: 489112 }
+Transferring a Ownership List
+
+| Program | Number of Accounts | Compute Units |
+| --- | ---- | ---- |
+| Base | 3 | 3849 |
+| Base | 31 | 15800 |
+| CPI | 3 | 30747 |
+| CPI | 31 | 66755 |
+| CPI-CPI | 3 | 66301 |
+| CPI-CPI | 31 | 119752 |
