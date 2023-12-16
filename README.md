@@ -69,20 +69,6 @@ Two concepts here:
 - Minimal Instruction Account Metas Interfaces (MIAMI)
 - Preflight instructions
 
-### Paging
-
-The return data of the `preflight` instruction must be defined as follows (see `AdditionalAccounts` struct in `additional-accounts-request` crate).
-
-Preflight instructions also take an additional byte of instruction data used to determine the requested account page. 
-
-We imagine that for 99% of use cases the page will be 0. But to future-proof ourselves, we are going to allow accounts to be paged in quantites of 30.
-
-Preflight instructions must return valid data for any requested page. 
-
-Preflight instructions must be iteratively simulated with previously 
-requested accounts appended to the instruction, until the return data says that
-there are no more accounts to be returned.
-
 ### MIAMI Account Separation
 
 When executing multiple CPIs to MIAMI instructions, 
@@ -104,6 +90,33 @@ Coming soon
 ### Indexing (see `ngundotra/crud-indexing`)
 
 See separate repo. Out of scope for this account resolution patterns.
+
+# Considered Features That Were Removed
+
+### Paging
+
+The return data of the `preflight` instruction must be defined as follows (see `AdditionalAccounts` struct in `additional-accounts-request` crate).
+
+Preflight instructions also take an additional byte of instruction data used to determine the requested account page. 
+
+We imagine that for 99% of use cases the page will be 0. But to future-proof ourselves, we are going to allow accounts to be paged in quantites of 30.
+
+Preflight instructions must return valid data for any requested page. 
+
+Preflight instructions must be iteratively simulated with previously 
+requested accounts appended to the instruction, until the return data says that
+there are no more accounts to be returned.
+
+#### Reason for Removal
+
+This is impossible to support when you are making multiple MIAMI calls. 
+The whole point of this framework is to enable composability on Solana, which we define
+as the making calls to unknown programs with unknown execution paths with known accounts.
+
+We cannot reasonably support paging in preflight instructions that for instructions that make 
+multiple MIAMI calls because we do not have a way of easily delimiting which page we
+should request for any preflight instruction after the first.
+
 
 
 # Benchmark Results
