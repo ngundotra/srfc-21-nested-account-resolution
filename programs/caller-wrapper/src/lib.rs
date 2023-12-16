@@ -12,13 +12,13 @@ pub mod caller_wrapper {
     use super::*;
 
     pub fn preflight_transfer<'info>(
-        ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>,
+        ctx: Context<'_, '_, '_, 'info, Transfer<'info>>,
         page: u8,
     ) -> Result<()> {
         processor::transfer::preflight_transfer(ctx, page)
     }
 
-    pub fn transfer<'info>(ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>) -> Result<()> {
+    pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {
         processor::transfer::transfer(ctx)
     }
 }

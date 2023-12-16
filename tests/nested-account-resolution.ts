@@ -129,8 +129,8 @@ describe("nested-account-resolution", () => {
       await validateTransfer(program, [nodeKp], 1);
     });
 
-    // for (let i = 2; i < 11; i++) {
-    for (let i = 2; i < 3; i++) {
+    for (let i = 2; i < 11; i++) {
+      // for (let i = 2; i < 3; i++) {
       const NUM_NODES = i;
       describe(`With ${NUM_NODES} nodes`, () => {
         let headNode: anchor.web3.PublicKey;
@@ -206,7 +206,6 @@ describe("nested-account-resolution", () => {
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
-              verbose: true,
             })
           ).computeUnits;
 
@@ -253,8 +252,8 @@ describe("nested-account-resolution", () => {
     // // for (let i = 31; i < ; i++) {
     // for (const i of [131, 200, 230]) {
     // for (const i of [125]) (works on devnet account resolution)
-    // for (const i of [31]) {
-    for (const i of [3]) {
+    for (const i of [31]) {
+      // for (const i of [3]) {
       const NUM_NODES = i;
 
       describe(`With ${NUM_NODES} nodes`, () => {
@@ -296,7 +295,6 @@ describe("nested-account-resolution", () => {
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
-              verbose: true,
             })
           ).computeUnits;
 
@@ -326,7 +324,6 @@ describe("nested-account-resolution", () => {
           const computeUnits = (
             await sendTransaction(provider.connection, [ix], {
               lookupTableAddress: lookupTable,
-              verbose: true,
             })
           ).computeUnits;
 

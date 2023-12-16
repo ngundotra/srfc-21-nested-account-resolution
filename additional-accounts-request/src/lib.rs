@@ -1,3 +1,4 @@
+use anchor_lang::accounts::signer;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::log::sol_log_compute_units;
 use anchor_lang::solana_program::program::MAX_RETURN_DATA;
@@ -127,6 +128,7 @@ pub struct AdditionalAccountsRequest {
 }
 
 /// Resolves the page of accounts for a particular instruction
+#[inline(never)]
 pub fn resolve_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     ix_name: String,
     ctx: &CpiContext<'_, '_, '_, 'info, C1>,
@@ -236,6 +238,68 @@ pub fn call_preflight_interface_function<'info, T: ToAccountInfos<'info> + ToAcc
     Ok(())
 }
 
+pub fn call_interface_function_raw(
+    program_key: &Pubkey,
+    function_name: String,
+    args: &[u8],
+    metas: Vec<AccountMeta>,
+    accounts: &[AccountInfo],
+    signer_seeds: &[&[&[u8]]],
+    log_info: bool,
+) -> Result<()> {
+    let mut ix_data: Vec<u8> =
+        hash::hash(format!("global:{}", &function_name).as_bytes()).to_bytes()[..8].to_vec();
+    ix_data.extend_from_slice(&args);
+
+    if log_info {
+        msg!("Account Metas creation...");
+        sol_log_compute_units();
+    }
+    // let mut ix_account_metas = metas.clone();
+    // ix_account_metas.append(
+    //     additional_accounts
+    //         .map(|(acc, writable)| {
+    //             if writable {
+    //                 AccountMeta::new(*acc, false)
+    //             } else {
+    //                 AccountMeta::new_readonly(*acc, false)
+    //             }
+    //         })
+    //         .collect::<Vec<AccountMeta>>()
+    //         .as_mut(),
+    // );
+    if log_info {
+        sol_log_compute_units();
+        msg!("Account Metas created...");
+    }
+
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: *program_key,
+        accounts: metas,
+        data: ix_data,
+    };
+
+    // Oddly enough, we only need to specify the account metas
+    // we can just throw the account infos in there and account metas
+    // will specify ordering & filtering (?)
+    if log_info {
+        msg!("Finished creating context...");
+        sol_log_compute_units();
+    }
+
+    // execute
+    // let ais = vec![accounts, remaining_accounts];
+
+    // let ais: Vec<AccountInfo> = accounts
+    //     .iter()
+    //     .chain(remaining_accounts.iter())
+    //     .map(|ai| ai.clone())
+    //     // .collect(),
+    //     .collect();
+    invoke_signed(&ix, &accounts, &signer_seeds)?;
+    Ok(())
+}
+
 /// This calls the main function on the target program, and passes along the requested
 /// account_metas from the preflight function
 pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>(
@@ -327,7 +391,66 @@ pub fn call_interface_function<'info, T: ToAccountInfos<'info> + ToAccountMetas>
 ///
 /// Expects ctx.remaining accounts to have all possible accounts in order to resolve
 /// the accounts requested from the preflight function
+#[inline(never)]
 pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
+    ix_name: String,
+    ctx: CpiContext<'_, '_, '_, 'info, C1>,
+    args: Vec<u8>,
+    counter: u8,
+    log_info: bool,
+) -> Result<u8> {
+    // preflight
+    let caller_program_id = ctx.program.key;
+    let delimiter = Pubkey::find_program_address(&["DELIMITER".as_ref()], caller_program_id).0;
+    let mut accounts = ctx.accounts.to_account_infos();
+    let mut metas = ctx.accounts.to_account_metas(None);
+
+    if log_info {
+        msg!("Identifying additional accounts...");
+        sol_log_compute_units();
+    }
+    let mut seen = 0;
+    ctx.remaining_accounts
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i >= counter as usize)
+        .for_each(|(_, acc)| {
+            if log_info {
+                msg!("Account: {}", acc.key)
+            }
+            if *acc.key != delimiter {
+                accounts.push(acc.clone());
+                metas.push(AccountMeta {
+                    pubkey: *acc.key,
+                    is_signer: acc.is_signer,
+                    is_writable: acc.is_writable,
+                });
+            } else {
+                if log_info {
+                    msg!("Found delimiter");
+                }
+                seen += 1;
+            }
+        });
+
+    // execute
+    if log_info {
+        sol_log_compute_units();
+        msg!("Execute {}", &ix_name);
+    }
+    call_interface_function_raw(
+        ctx.program.key,
+        ix_name.clone(),
+        &args,
+        metas,
+        &accounts,
+        ctx.signer_seeds,
+        log_info,
+    )?;
+    Ok(counter + 1)
+}
+
+pub fn call_v0<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     ix_name: String,
     ctx: CpiContext<'_, '_, '_, 'info, C1>,
     args: Vec<u8>,
@@ -337,13 +460,14 @@ pub fn call<'info, C1: ToAccountInfos<'info> + ToAccountMetas>(
     if log_info {
         msg!("Identifying additional accounts...")
     }
+    // This is the recursive method (sucks)
     let additional_accounts = identify_additional_accounts(ix_name.clone(), &ctx, &args, log_info)?;
+    let iter = &mut additional_accounts.iter().flat_map(|accs| accs.iter());
 
     // execute
     if log_info {
         msg!("Execute {}", &ix_name);
     }
-    let iter = &mut additional_accounts.iter().flat_map(|accs| accs.iter());
     call_interface_function(ix_name.clone(), ctx, &args, iter, log_info)?;
     Ok(())
 }

@@ -24,7 +24,7 @@ pub struct Transfer<'info> {
 }
 
 pub fn preflight_transfer<'info>(
-    ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>,
+    ctx: Context<'_, '_, '_, 'info, Transfer<'info>>,
     page: u8,
 ) -> Result<()> {
     let additional_accounts = resolve_additional_accounts(
@@ -54,7 +54,7 @@ pub fn preflight_transfer<'info>(
     Ok(())
 }
 
-pub fn transfer<'info>(ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>) -> Result<()> {
+pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {
     let cpi_ctx = CpiContext::new(
         ctx.accounts.delegate_program.clone(),
         ITransferAnything {
@@ -70,6 +70,7 @@ pub fn transfer<'info>(ctx: Context<'_, '_, 'info, 'info, Transfer<'info>>) -> R
         ITransferAnything::instruction_name(),
         cpi_ctx,
         vec![],
+        0,
         false,
     )?;
     Ok(())

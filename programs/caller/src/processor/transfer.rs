@@ -101,6 +101,7 @@ pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Resu
         ix_name,
         cpi_ctx,
         ctx.accounts.destination.key.try_to_vec().unwrap(),
+        0,
         true,
     )?;
     Ok(())
