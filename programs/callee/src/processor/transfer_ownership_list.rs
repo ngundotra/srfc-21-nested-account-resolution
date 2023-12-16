@@ -34,26 +34,36 @@ pub fn transfer_ownership_list<'info>(
 pub fn preflight_transfer_ownership_list<'info>(
     ctx: Context<'_, '_, 'info, 'info, TransferOwnershipList<'info>>,
     destination: Pubkey,
-    page: u8,
 ) -> Result<()> {
     let ownership_list = &ctx.accounts.ownership_list;
 
     let mut additional_accounts = AdditionalAccounts::new();
+    let mut accounts_iter = ctx.remaining_accounts.into_iter();
 
-    // Get only relevant page of accounts
-    ownership_list.accounts[MAX_ACCOUNTS * page as usize
-        ..(MAX_ACCOUNTS * (page as usize + 1)).min(ownership_list.accounts.len())]
-        .iter()
-        .for_each(|key| additional_accounts.add_account(&key, false).unwrap());
-
-    // Determine if there are more accounts to return
-    let has_more: bool;
-    if ownership_list.accounts.len() > MAX_ACCOUNTS * (page as usize + 1) {
-        has_more = true;
-    } else {
-        has_more = false;
+    // Find which accounts have already been added
+    let mut insert_index: usize = 0;
+    for account_key in ownership_list.accounts.iter() {
+        match next_account_info(&mut accounts_iter) {
+            Ok(acc) => {
+                if acc.key != account_key {
+                    break;
+                } else {
+                    insert_index += 1
+                }
+            }
+            Err(..) => {
+                break;
+            }
+        }
     }
-    additional_accounts.set_has_more(has_more);
+
+    for account_key in ownership_list.accounts[insert_index..].iter() {
+        if additional_accounts.has_space_available() {
+            additional_accounts.add_account(account_key, false).unwrap();
+        } else {
+            additional_accounts.set_has_more(true)
+        }
+    }
 
     // Logging
     msg!(

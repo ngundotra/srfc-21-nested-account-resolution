@@ -47,7 +47,6 @@ pub fn transfer_linked_list<'info>(
 pub fn preflight_transfer_linked_list<'info>(
     ctx: Context<'_, '_, 'info, 'info, TransferLinkedList<'info>>,
     destination: Pubkey,
-    page: u8,
 ) -> Result<()> {
     ctx.remaining_accounts.iter().for_each(|account| {
         msg!("> received: {}", account.key);
@@ -56,25 +55,22 @@ pub fn preflight_transfer_linked_list<'info>(
 
     let mut additional_accounts = AdditionalAccounts::new();
     let mut current_node = ctx.accounts.head_node.to_owned();
-    let mut seen = 0;
     while current_node.next.is_some() && additional_accounts.has_space_available() {
         let next_node = current_node.next.unwrap();
-        if seen >= MAX_ACCOUNTS * page as usize {
-            additional_accounts.add_account(&next_node, true)?;
-        }
         match next_account_info(&mut accounts_iter) {
             Ok(acct) => {
                 if acct.key() != next_node {
                     msg!("Missing: {}", next_node.to_string());
+                    additional_accounts.add_account(&next_node, true)?;
                     additional_accounts.set_has_more(true);
                     break;
                 } else {
                     current_node = Account::<Node>::try_from_unchecked(&acct)?;
-                    seen += 1;
                 }
             }
             _ => {
                 msg!("Missing: {}", next_node.to_string());
+                additional_accounts.add_account(&next_node, true)?;
                 additional_accounts.set_has_more(true);
                 break;
             }

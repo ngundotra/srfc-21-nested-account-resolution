@@ -52,7 +52,7 @@ fn get_transfer_args(object: &Pubkey) -> Vec<u8> {
     object.try_to_vec().unwrap()
 }
 
-pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>, page: u8) -> Result<()> {
+pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Result<()> {
     let delimiter = get_delimiter(&crate::id());
     let mut stage: u8 = 0;
     let mut latest_delimiter_idx = 0;
@@ -78,12 +78,7 @@ pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>, page:
                     },
                 )
                 .with_remaining_accounts(ctx.remaining_accounts[0..latest_delimiter_idx].to_vec()),
-                &[
-                    get_transfer_args(ctx.accounts.objectA.key),
-                    page.to_le_bytes().to_vec(),
-                ]
-                .concat(),
-                page,
+                &get_transfer_args(ctx.accounts.objectA.key),
                 false,
             )?;
 
@@ -117,12 +112,7 @@ pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>, page:
                     },
                 )
                 .with_remaining_accounts(ctx.remaining_accounts[latest_delimiter_idx..].to_vec()),
-                &[
-                    get_transfer_args(ctx.accounts.objectB.key),
-                    page.to_le_bytes().to_vec(),
-                ]
-                .concat(),
-                page,
+                &get_transfer_args(ctx.accounts.objectB.key),
                 false,
             )?;
 

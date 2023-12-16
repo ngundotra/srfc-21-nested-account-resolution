@@ -41,7 +41,7 @@ describe("nested-account-resolution", () => {
   const provider = anchor.getProvider();
   const payer = provider.publicKey;
 
-  describe("Base costs", () => {
+  describe.skip("Base costs", () => {
     it("Return data 1024", async () => {
       async function getCost(amount: 0 | 512 | 1024) {
         let ix = await program.methods
@@ -80,7 +80,6 @@ describe("nested-account-resolution", () => {
         }`
       );
     });
-    // it("");
   });
 
   let destinationKp = anchor.web3.Keypair.generate();

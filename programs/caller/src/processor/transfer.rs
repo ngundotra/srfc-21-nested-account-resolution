@@ -24,12 +24,8 @@ pub struct Transfer<'info> {
     destination: AccountInfo<'info>,
 }
 
-pub fn preflight_transfer<'info>(
-    ctx: Context<'_, '_, '_, 'info, Transfer<'info>>,
-    page: u8,
-) -> Result<()> {
-    let mut args = ctx.accounts.destination.key.try_to_vec().unwrap();
-    args.extend(page.to_le_bytes().to_vec());
+pub fn preflight_transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {
+    let args = ctx.accounts.destination.key.try_to_vec().unwrap();
 
     let ix_name: String;
     {
@@ -58,14 +54,8 @@ pub fn preflight_transfer<'info>(
         )
         .with_remaining_accounts(ctx.remaining_accounts.to_vec()),
         &args,
-        page,
         false,
     )?;
-
-    if page as u32 > additional_accounts.num_accounts {
-        msg!("Page {} is out of bounds", page);
-        return Err(ProgramError::InvalidInstructionData.into());
-    }
 
     set_return_data(bytemuck::bytes_of(&additional_accounts));
 

@@ -133,10 +133,9 @@ pub fn resolve_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccountM
     ix_name: String,
     ctx: &CpiContext<'_, '_, '_, 'info, C1>,
     args: &[u8],
-    page: u8,
     log_info: bool,
 ) -> Result<AdditionalAccounts> {
-    call_preflight_interface_function(ix_name.clone(), &ctx, &args, page)?;
+    call_preflight_interface_function(ix_name.clone(), &ctx, &args)?;
 
     let program_key = ctx.program.key();
     let (key, program_data) = get_return_data().unwrap();
@@ -151,7 +150,11 @@ pub fn resolve_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccountM
     // so we can't do our normal bytemuck::from_bytes call here
     let accs: AdditionalAccounts = bytemuck::pod_read_unaligned::<AdditionalAccounts>(program_data);
     if log_info {
-        msg!("Page: {} {} {}", page, accs.has_more, accs.accounts.len());
+        msg!(
+            "Accounts has more: {} {}",
+            accs.has_more,
+            accs.accounts.len()
+        );
     }
     Ok(accs)
 }
@@ -175,7 +178,7 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
     let mut has_more = true;
     let mut page = 0;
     while has_more {
-        let accs = resolve_additional_accounts(ix_name.clone(), ctx, args, page, log_info)?;
+        let accs = resolve_additional_accounts(ix_name.clone(), ctx, args, log_info)?;
 
         additional_accounts.push(accs);
 
@@ -209,7 +212,6 @@ pub fn call_preflight_interface_function<'info, T: ToAccountInfos<'info> + ToAcc
     function_name: String,
     ctx: &CpiContext<'_, '_, '_, 'info, T>,
     args: &[u8],
-    page: u8,
 ) -> Result<()> {
     // setup
     sol_log_compute_units();
@@ -218,7 +220,6 @@ pub fn call_preflight_interface_function<'info, T: ToAccountInfos<'info> + ToAcc
             .to_vec();
 
     ix_data.extend_from_slice(args);
-    ix_data.extend_from_slice(&[page]);
 
     let mut ix_account_metas = ctx.accounts.to_account_metas(Some(false));
     ix_account_metas.extend(ctx.remaining_accounts.to_account_metas(None));

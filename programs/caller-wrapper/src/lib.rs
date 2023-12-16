@@ -13,9 +13,8 @@ pub mod caller_wrapper {
 
     pub fn preflight_transfer<'info>(
         ctx: Context<'_, '_, '_, 'info, Transfer<'info>>,
-        page: u8,
     ) -> Result<()> {
-        processor::transfer::preflight_transfer(ctx, page)
+        processor::transfer::preflight_transfer(ctx)
     }
 
     pub fn transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {

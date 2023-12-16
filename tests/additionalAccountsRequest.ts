@@ -131,13 +131,15 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
 }
 
 async function extendLookupTable<I extends anchor.Idl>(
-  additionalAccounts: anchor.web3.AccountMeta[][],
+  additionalAccounts: anchor.web3.AccountMeta[],
   lastSize: number,
   program: anchor.Program<I>,
   lookupTable: anchor.web3.PublicKey
 ): Promise<number> {
   while (additionalAccounts.flat().length - lastSize) {
-    const batchSize = Math.min(29, additionalAccounts.flat().length - lastSize);
+    // 29 is max number of accounts we can extend a lookup table by in a single transaction
+    // ironically due to tx limits
+    const batchSize = Math.min(29, additionalAccounts.length - lastSize);
 
     const ix = anchor.web3.AddressLookupTableProgram.extendLookupTable({
       authority: program.provider.publicKey!,
@@ -156,7 +158,7 @@ async function extendLookupTable<I extends anchor.Idl>(
 }
 
 async function pollForActiveLookupTable(
-  additionalAccounts: anchor.web3.AccountMeta[][],
+  additionalAccounts: anchor.web3.AccountMeta[],
   program: anchor.Program<any>,
   lookupTable: anchor.web3.PublicKey
 ) {
@@ -169,7 +171,7 @@ async function pollForActiveLookupTable(
     if (table.value) {
       activeSlut =
         table.value.isActive() &&
-        table.value.state.addresses.length === additionalAccounts.flat().length;
+        table.value.state.addresses.length === additionalAccounts.length;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
@@ -207,23 +209,20 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   );
   currentBuffer.set(newIxDisc, 0);
 
-  let additionalAccounts: anchor.web3.AccountMeta[][] = [[]];
+  let additionalAccounts: anchor.web3.AccountMeta[] = [];
   let hasMore = true;
-  let page = 0;
   let i = 0;
   let lookupTable: anchor.web3.PublicKey | undefined;
   let lastSize = 0;
   while (hasMore) {
     if (verbose) {
       console.log(
-        `Page: ${page} | additionalAccounts: ${
-          additionalAccounts.flat().length
-        }`
+        `Iteration: ${i} | additionalAccounts: ${additionalAccounts.length}`
       );
     }
 
     // Write the current page number at the end of the instruction data
-    instruction.data = Buffer.concat([currentBuffer, Buffer.from([page])]);
+    instruction.data = currentBuffer;
 
     // Add found accounts to instruction
     instruction.keys = originalKeys.concat(additionalAccounts.flat());
@@ -236,12 +235,12 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
     );
 
     if (verbose) {
-      console.log(`Page: ${page} | requested: ${result.accounts.length}`);
+      console.log(`Iteration: ${i} | requested: ${result.accounts.length}`);
     }
     hasMore = result.hasMore;
-    additionalAccounts[page] = result.accounts;
+    additionalAccounts = additionalAccounts.concat(result.accounts);
 
-    if (additionalAccounts.flat().length >= 10 && slut) {
+    if (additionalAccounts.length >= 10 && slut) {
       if (!lookupTable) {
         const [ix, tableAddr] =
           anchor.web3.AddressLookupTableProgram.createLookupTable({
@@ -269,9 +268,6 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
     if (i >= 16) {
       throw new Error(`Too many iterations ${i}`);
     }
-    if (result.accounts.length === MAX_ACCOUNTS && hasMore) {
-      page++;
-    }
   }
 
   if (slut && lookupTable) {
@@ -279,7 +275,7 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
     await pollForActiveLookupTable(additionalAccounts, program, lookupTable);
   }
 
-  instruction.keys = originalKeys.concat(additionalAccounts.flat());
+  instruction.keys = originalKeys.concat(additionalAccounts);
 
   // Reset original data
   instruction.data = originalData;

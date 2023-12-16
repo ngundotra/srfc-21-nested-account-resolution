@@ -29,9 +29,8 @@ pub mod callee {
     pub fn preflight_transfer_linked_list<'info>(
         ctx: Context<'_, '_, 'info, 'info, TransferLinkedList<'info>>,
         destination: Pubkey,
-        page: u8,
     ) -> Result<()> {
-        processor::transfer_linked_list::preflight_transfer_linked_list(ctx, destination, page)
+        processor::transfer_linked_list::preflight_transfer_linked_list(ctx, destination)
     }
 
     pub fn transfer_ownership_list<'info>(
@@ -44,13 +43,8 @@ pub mod callee {
     pub fn preflight_transfer_ownership_list<'info>(
         ctx: Context<'_, '_, 'info, 'info, TransferOwnershipList<'info>>,
         destination: Pubkey,
-        page: u8,
     ) -> Result<()> {
-        processor::transfer_ownership_list::preflight_transfer_ownership_list(
-            ctx,
-            destination,
-            page,
-        )
+        processor::transfer_ownership_list::preflight_transfer_ownership_list(ctx, destination)
     }
 
     /// Boilerplate initialization methods

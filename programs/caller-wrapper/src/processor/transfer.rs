@@ -23,10 +23,7 @@ pub struct Transfer<'info> {
     destination: AccountInfo<'info>,
 }
 
-pub fn preflight_transfer<'info>(
-    ctx: Context<'_, '_, '_, 'info, Transfer<'info>>,
-    page: u8,
-) -> Result<()> {
+pub fn preflight_transfer<'info>(ctx: Context<'_, '_, '_, 'info, Transfer<'info>>) -> Result<()> {
     let additional_accounts = resolve_additional_accounts(
         ITransferAnything::instruction_name(),
         &CpiContext::new(
@@ -40,14 +37,8 @@ pub fn preflight_transfer<'info>(
         )
         .with_remaining_accounts(ctx.remaining_accounts.to_vec()),
         &[],
-        page,
         false,
     )?;
-
-    if page as u32 > additional_accounts.num_accounts {
-        msg!("Page {} is out of bounds", page);
-        return Err(ProgramError::InvalidInstructionData.into());
-    }
 
     set_return_data(bytemuck::bytes_of(&additional_accounts));
 

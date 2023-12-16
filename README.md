@@ -127,6 +127,12 @@ Transferring a Linked List:
 - CPI-CPI: { num: 2, computeUnits: 116856 }
 
 Transferring a Ownership List
+3 
 - Base: { num: 3, computeUnits: 3480 }
 - CPI: { num: 3, computeUnits: 30747 }
 - CPI-CPI: { num: 3, computeUnits: 66301 }
+
+31 
+- Base { num: 31, computeUnits: 15800 }
+- CPI: { num: 31, computeUnits: 436953 }
+- CPI-CPI: { num: 31, computeUnits: 489112 }
