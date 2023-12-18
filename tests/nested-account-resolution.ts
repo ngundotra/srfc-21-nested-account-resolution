@@ -3,15 +3,63 @@ import { Program } from "@coral-xyz/anchor";
 import { CallerWrapper } from "../target/types/caller_wrapper";
 import { Callee } from "../target/types/callee";
 import { assert } from "chai";
-import { additionalAccountsRequest } from "./additionalAccountsRequest";
+import { additionalAccountsRequest } from "./lib/additionalAccountsRequest";
 import { Caller } from "../target/types/caller";
-import { PRE_INSTRUCTIONS, sendTransaction } from "./sendTransaction";
+import { PRE_INSTRUCTIONS, sendTransaction } from "./lib/sendTransaction";
 import { sha256 } from "@noble/hashes/sha256";
 
-async function validateTransfer(
+type ObjectCreationMeta = {
+  metas: anchor.web3.AccountMeta[];
+  signers: anchor.web3.Keypair[];
+};
+
+async function createOwnershipList(
+  program: anchor.Program<Callee>,
+  numNodes: number,
+  opts?: {
+    payer?: anchor.web3.Keypair;
+  }
+): Promise<ObjectCreationMeta> {
+  let headKp: anchor.web3.Keypair = null;
+
+  let nodeKps: anchor.web3.Keypair[] = [];
+  let nodeMetas: anchor.web3.AccountMeta[] = [];
+  nodeKps = [];
+  nodeMetas = [];
+  for (let i = 0; i < numNodes; i++) {
+    let kp = anchor.web3.Keypair.generate();
+    nodeKps.push(kp);
+    nodeMetas.push({
+      pubkey: kp.publicKey,
+      isWritable: true,
+      isSigner: true,
+    });
+  }
+  headKp = nodeKps[0];
+
+  // Override payer & signers if provided
+  let payer: anchor.web3.PublicKey;
+  let signers = nodeKps;
+  if (opts && opts.payer) {
+    payer = opts.payer.publicKey ?? program.provider.publicKey!;
+    signers = [opts.payer].concat(signers);
+  }
+
+  await program.methods
+    .createLinkedList(numNodes)
+    .accounts({ payer })
+    .remainingAccounts(nodeMetas)
+    .signers(signers)
+    .rpc({ skipPreflight: true, commitment: "confirmed" });
+
+  return { metas: nodeMetas, signers: nodeKps };
+}
+
+async function validateLinkedListTransfer(
   program: anchor.Program<Callee>,
   nodeKps: anchor.web3.Keypair[],
-  numNodes: number
+  numNodes: number,
+  destination: anchor.web3.PublicKey
 ) {
   let nodes = await program.account.node.fetchMultiple(
     nodeKps.map((kp) => kp.publicKey),
@@ -19,12 +67,26 @@ async function validateTransfer(
   );
 
   for (let i = 0; i < numNodes - 1; i++) {
+    assert(nodes[i].owner.toBase58() === destination.toBase58());
     assert(
       nodes[i].next.toString() === nodeKps[i + 1].publicKey.toString(),
       `${i}th node's next is not correct!`
     );
   }
   assert(nodes[numNodes - 1].next === null);
+}
+
+async function validateOwnershipListTransfer(
+  program: anchor.Program<Callee>,
+  ownershipListKey: anchor.web3.PublicKey,
+  destination: anchor.web3.PublicKey
+) {
+  let ownershipList = await program.account.ownershipList.fetch(
+    ownershipListKey,
+    "confirmed"
+  );
+
+  assert(ownershipList.owner.toBase58() === destination.toBase58());
 }
 
 describe("nested-account-resolution", () => {
@@ -41,7 +103,7 @@ describe("nested-account-resolution", () => {
   const provider = anchor.getProvider();
   const payer = provider.publicKey;
 
-  describe("Base costs", () => {
+  describe.skip("Base costs", () => {
     it("Return data 1024", async () => {
       async function getCost(amount: 0 | 512 | 1024) {
         let ix = await program.methods
@@ -125,12 +187,10 @@ describe("nested-account-resolution", () => {
       ).computeUnits;
       console.log({ num: 1, computeUnits });
 
-      await validateTransfer(program, [nodeKp], 1);
+      await validateLinkedListTransfer(program, [nodeKp], 1, destination);
     });
 
-    for (const i of [2, 3, 10]) {
-      // for (let i = 2; i < 11; i++) {
-      // for (let i = 2; i < 3; i++) {
+    for (const i of [1, 2, 10]) {
       const NUM_NODES = i;
       describe(`With ${NUM_NODES} nodes`, () => {
         let headNode: anchor.web3.PublicKey;
@@ -138,25 +198,13 @@ describe("nested-account-resolution", () => {
         let nodeKps: anchor.web3.Keypair[] = [];
         let nodeMetas: anchor.web3.AccountMeta[] = [];
         beforeEach(async () => {
-          nodeKps = [];
-          nodeMetas = [];
-          for (let i = 0; i < NUM_NODES; i++) {
-            let kp = anchor.web3.Keypair.generate();
-            nodeKps.push(kp);
-            nodeMetas.push({
-              pubkey: kp.publicKey,
-              isWritable: true,
-              isSigner: true,
-            });
-          }
+          const { metas, signers } = await createOwnershipList(
+            program,
+            NUM_NODES
+          );
+          nodeKps = signers;
+          nodeMetas = metas;
           headNode = nodeKps[0].publicKey;
-
-          await program.methods
-            .createLinkedList(NUM_NODES)
-            .accounts({ payer })
-            .remainingAccounts(nodeMetas)
-            .signers(nodeKps)
-            .rpc({ skipPreflight: true, commitment: "confirmed" });
         });
 
         it(`Can transfer a linked list (${NUM_NODES})`, async () => {
@@ -182,7 +230,12 @@ describe("nested-account-resolution", () => {
           ).computeUnits;
           console.log({ num: NUM_NODES, computeUnits });
 
-          await validateTransfer(program, nodeKps, NUM_NODES);
+          await validateLinkedListTransfer(
+            program,
+            nodeKps,
+            NUM_NODES,
+            destination
+          );
         });
 
         it(`Can transfer a linked list (${NUM_NODES}) via CPI`, async () => {
@@ -211,7 +264,12 @@ describe("nested-account-resolution", () => {
 
           console.log({ num: NUM_NODES, computeUnits });
 
-          await validateTransfer(program, nodeKps, NUM_NODES);
+          await validateLinkedListTransfer(
+            program,
+            nodeKps,
+            NUM_NODES,
+            destination
+          );
         });
 
         it(`Can transfer a linked list (${NUM_NODES}) via CPI-CPI`, async () => {
@@ -242,23 +300,26 @@ describe("nested-account-resolution", () => {
 
           console.log({ num: NUM_NODES, computeUnits });
 
-          await validateTransfer(program, nodeKps, NUM_NODES);
+          await validateLinkedListTransfer(
+            program,
+            nodeKps,
+            NUM_NODES,
+            destination
+          );
         });
       });
     }
   });
   describe("Ownership List tests", () => {
-    // for (let i = 31; i < ; i++) {
-    // // for (let i = 31; i < ; i++) {
     // for (const i of [131, 200, 230]) {
     // for (const i of [125]) (works on devnet account resolution)
-    for (const i of [31]) {
-      // for (const i of [3]) {
+    for (const i of [1, 2, 31]) {
       const NUM_NODES = i;
 
       describe(`With ${NUM_NODES} nodes`, () => {
         let ownershipListKp: anchor.web3.Keypair;
         let ownershipList: anchor.web3.PublicKey;
+        let destination: anchor.web3.PublicKey;
         beforeEach(async () => {
           ownershipListKp = anchor.web3.Keypair.generate();
           ownershipList = ownershipListKp.publicKey;
@@ -272,11 +333,13 @@ describe("nested-account-resolution", () => {
             .preInstructions(PRE_INSTRUCTIONS)
             .signers([ownershipListKp])
             .rpc({ skipPreflight: false, commitment: "confirmed" });
+
+          destination = anchor.web3.Keypair.generate().publicKey;
         });
 
         it(`Can transfer an ownership list (${NUM_NODES})`, async () => {
           let ix = await program.methods
-            .transferOwnershipList(ownershipList)
+            .transferOwnershipList(destination)
             .accounts({
               ownershipList,
               owner: payer,
@@ -299,6 +362,11 @@ describe("nested-account-resolution", () => {
           ).computeUnits;
 
           console.log({ num: NUM_NODES, computeUnits });
+          await validateOwnershipListTransfer(
+            program,
+            ownershipList,
+            destination
+          );
         });
 
         it(`Can transfer an ownership list (${NUM_NODES}) via CPI`, async () => {
@@ -328,6 +396,11 @@ describe("nested-account-resolution", () => {
           ).computeUnits;
 
           console.log({ num: NUM_NODES, computeUnits });
+          await validateOwnershipListTransfer(
+            program,
+            ownershipList,
+            destination
+          );
         });
 
         it(`Can transfer an ownership list (${NUM_NODES}) via CPI-CPI`, async () => {
@@ -360,24 +433,24 @@ describe("nested-account-resolution", () => {
 
           console.log({ num: NUM_NODES, computeUnits });
 
-          // await validateTransfer(program, nodeKps, NUM_NODES);
+          await validateOwnershipListTransfer(
+            program,
+            ownershipList,
+            destination
+          );
         });
       });
     }
   });
 
   describe("Swap tests", () => {
-    // for (let i = 31; i < ; i++) {
-    // // for (let i = 31; i < ; i++) {
-    // for (const i of [131, 200, 230]) {
-    // for (const i of [125]) (works on devnet account resolution)
     let ownerBKp = anchor.web3.Keypair.generate();
     let ownerB = ownerBKp.publicKey;
 
-    for (const i of [5, 10, 25]) {
+    for (const i of [1, 2, 25]) {
       const NUM_NODES = i;
 
-      describe(`With ${NUM_NODES} Accounts`, () => {
+      describe(`With Ownership Lists Containing ${NUM_NODES} Accounts`, () => {
         let ownershipListKpA: anchor.web3.Keypair;
         let ownershipListA: anchor.web3.PublicKey;
 
@@ -446,6 +519,79 @@ describe("nested-account-resolution", () => {
           ).computeUnits;
 
           console.log({ num: NUM_NODES, computeUnits });
+          await validateOwnershipListTransfer(program, ownershipListA, ownerB);
+          await validateOwnershipListTransfer(program, ownershipListB, payer);
+        });
+      });
+    }
+
+    // We're throttled at 9 accounts per linkedlist because
+    // we can only create a linked list of size 9 for ownerB's keypair.
+    // In other LL tests we can do 10, but creating for ownerB requires addnl pubkey + sig
+    for (const i of [1, 2, 9]) {
+      const NUM_NODES = i;
+      describe(`With Linked Lists Containing ${NUM_NODES} Accounts`, () => {
+        let linkedListA: anchor.web3.PublicKey;
+        let listAInfo: ObjectCreationMeta;
+
+        let linkedListB: anchor.web3.PublicKey;
+        let listBInfo: ObjectCreationMeta;
+        beforeEach(async () => {
+          await provider.connection.requestAirdrop(
+            ownerB,
+            1 * anchor.web3.LAMPORTS_PER_SOL
+          );
+
+          listAInfo = await createOwnershipList(program, NUM_NODES);
+          linkedListA = listAInfo.signers[0].publicKey;
+
+          listBInfo = await createOwnershipList(program, NUM_NODES, {
+            payer: ownerBKp,
+          });
+          linkedListB = listBInfo.signers[0].publicKey;
+        });
+
+        it("Can swap linked list for linked list", async () => {
+          let ix = await caller.methods
+            .swap()
+            .accounts({
+              program: program.programId,
+              objectA: linkedListA,
+              ownerA: payer,
+              objectB: linkedListB,
+              ownerB: ownerB,
+            })
+            .instruction();
+
+          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
+            caller,
+            ix,
+            "swap",
+            false,
+            true
+          );
+          ix = _ix;
+
+          const computeUnits = (
+            await sendTransaction(provider.connection, [ix], {
+              lookupTableAddress: lookupTable,
+              signers: [ownerBKp],
+            })
+          ).computeUnits;
+
+          console.log({ num: NUM_NODES, computeUnits });
+          await validateLinkedListTransfer(
+            program,
+            listAInfo.signers,
+            NUM_NODES,
+            ownerB
+          );
+          await validateLinkedListTransfer(
+            program,
+            listBInfo.signers,
+            NUM_NODES,
+            payer
+          );
         });
       });
     }

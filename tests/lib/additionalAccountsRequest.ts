@@ -255,17 +255,34 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
         lookupTable = tableAddr;
       }
 
-      lastSize = await extendLookupTable(
-        additionalAccounts,
-        lastSize,
-        program,
-        lookupTable
-      );
-      await pollForActiveLookupTable(additionalAccounts, program, lookupTable);
+      // We want to minimize the number of non-transactional
+      // txs we have to send on-chain. So we maximize # of accounts
+      // to extend the lookup table by.
+      // In practice, we can probably mix accounts from different resolutions
+      // into the same extend LUT tx.
+      if (additionalAccounts.length - lastSize >= 10) {
+        if (verbose) {
+          console.log("Extending lookup table...");
+        }
+        lastSize = await extendLookupTable(
+          additionalAccounts,
+          lastSize,
+          program,
+          lookupTable
+        );
+        await pollForActiveLookupTable(
+          additionalAccounts,
+          program,
+          lookupTable
+        );
+        if (verbose) {
+          console.log("...extended!");
+        }
+      }
     }
 
     i++;
-    if (i >= 16) {
+    if (i >= 32) {
       throw new Error(`Too many iterations ${i}`);
     }
   }

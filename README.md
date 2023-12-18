@@ -128,26 +128,35 @@ Transferring a Linked List:
 
 | Program | Number of Accounts | Compute Units |
 | --- | ---- | ---- |
+| Base | 1 | 14833 |
 | Base | 2 | 16173 |
 | Base | 3 | 17442 |
 | Base | 10 | 26325 |
+| CPI | 1 | 25470 |
 | CPI | 2 | 27518 |
 | CPI | 3 | 29491 |
-| CPI | 10 | 44889 |
-| CPI-CPI | 2 | 39016 |
+| CPI | 10 | 44901 |
+| CPI-CPI | 1 | 35948 |
+| CPI-CPI | 2 | 39058 |
 | CPI-CPI | 3 | 41767 |
-| CPI-CPI | 10 | 63953 |
+| CPI-CPI | 10 | 64046 |
 
 Transferring a Ownership List
 
 | Program | Number of Accounts | Compute Units |
 | --- | ---- | ---- |
+| Base | 1 | 2600 |
+| Base | 2 | 3040 |
 | Base | 3 | 3849 |
 | Base | 31 | 15800 |
+| CPI | 1 | 14042 |
+| CPI | 2 | 15188 |
 | CPI | 3 | 30747 |
-| CPI | 31 | 66755 |
+| CPI | 31 | 66756 |
+| CPI-CPI | 1 | 25561 |
+| CPI-CPI | 2 | 27494 |
 | CPI-CPI | 3 | 66301 |
-| CPI-CPI | 31 | 119752 |
+| CPI-CPI | 31 | 119991 |
 
 
 Swapping Ownership Lists
@@ -157,3 +166,11 @@ Swapping Ownership Lists
 | CPI       | 5                                     | 37681          |
 | CPI       | 10                                    | 52649          |
 | CPI       | 25                                    | 108666         |
+
+Swapping Linked Lists for Linked Lists
+
+| Program | Number of Accounts in Linked List (per side) | Compute Units  |
+| ---       | ---                                        | ---------      |
+| CPI       | 1                                          | 49984          |
+| CPI       | 2                                          | 54107          |
+| CPI       | 9                                          | 85240          |

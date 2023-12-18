@@ -132,7 +132,9 @@ pub fn preflight_swap<'info>(ctx: Context<'_, '_, '_, 'info, Swap<'info>>) -> Re
                         object: ctx.accounts.object_b.clone(),
                     },
                 )
-                .with_remaining_accounts(ctx.remaining_accounts[latest_delimiter_idx..].to_vec()),
+                .with_remaining_accounts(
+                    ctx.remaining_accounts[latest_delimiter_idx + 1..].to_vec(),
+                ),
                 &get_transfer_args(ctx.accounts.object_b.key),
                 false,
             )?;
