@@ -12,6 +12,9 @@ type CallOpts = {
   signers?: anchor.web3.Keypair[];
 };
 
+/**
+ * Todo: add renderers to make these AccountMetas
+ */
 type TransferBaseAccounts = {
   authority?: anchor.web3.PublicKey;
   object: anchor.web3.PublicKey;
