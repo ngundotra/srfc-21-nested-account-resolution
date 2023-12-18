@@ -1,6 +1,10 @@
 import * as anchor from "@coral-xyz/anchor";
 import { sha256 } from "@noble/hashes/sha256";
-import { PRE_INSTRUCTIONS, sendTransaction } from "./sendTransaction";
+import {
+  PRE_INSTRUCTIONS,
+  getLocalKp,
+  sendTransaction,
+} from "./sendTransaction";
 
 type AdditionalAccounts = {
   accounts: anchor.web3.AccountMeta[];
@@ -15,8 +19,8 @@ const MAX_ACCOUNTS = 30;
  * @param instructions
  * @returns
  */
-export async function resolveRemainingAccounts<I extends anchor.Idl>(
-  program: anchor.Program<I>,
+export async function resolveRemainingAccounts(
+  connection: anchor.web3.Connection,
   instructions: anchor.web3.TransactionInstruction[],
   verbose: boolean = false,
   slut: anchor.web3.PublicKey | undefined = undefined
@@ -29,7 +33,7 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
     }
     while (!lookupTable) {
       lookupTable = (
-        await program.provider.connection.getAddressLookupTable(slut, {
+        await connection.getAddressLookupTable(slut, {
           commitment: "confirmed",
         })
       ).value;
@@ -38,20 +42,16 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
   }
 
   let message = anchor.web3.MessageV0.compile({
-    payerKey: program.provider.publicKey!,
+    payerKey: getLocalKp().publicKey!,
     instructions: PRE_INSTRUCTIONS.concat(instructions),
     addressLookupTableAccounts: slut ? [lookupTable] : undefined,
-    recentBlockhash: (await program.provider.connection.getRecentBlockhash())
-      .blockhash,
+    recentBlockhash: (await connection.getRecentBlockhash()).blockhash,
   });
   let transaction = new anchor.web3.VersionedTransaction(message);
 
-  let simulationResult = await program.provider.connection.simulateTransaction(
-    transaction,
-    {
-      commitment: "confirmed",
-    }
-  );
+  let simulationResult = await connection.simulateTransaction(transaction, {
+    commitment: "confirmed",
+  });
 
   if (verbose) {
     console.log("CUs consumed:", simulationResult.value.unitsConsumed);
@@ -130,10 +130,10 @@ export async function resolveRemainingAccounts<I extends anchor.Idl>(
   }
 }
 
-async function extendLookupTable<I extends anchor.Idl>(
+async function extendLookupTable(
   additionalAccounts: anchor.web3.AccountMeta[],
   lastSize: number,
-  program: anchor.Program<I>,
+  connection: anchor.web3.Connection,
   lookupTable: anchor.web3.PublicKey
 ): Promise<number> {
   while (additionalAccounts.flat().length - lastSize) {
@@ -141,9 +141,10 @@ async function extendLookupTable<I extends anchor.Idl>(
     // ironically due to tx limits
     const batchSize = Math.min(29, additionalAccounts.length - lastSize);
 
+    const localPubkey = getLocalKp().publicKey;
     const ix = anchor.web3.AddressLookupTableProgram.extendLookupTable({
-      authority: program.provider.publicKey!,
-      payer: program.provider.publicKey!,
+      authority: localPubkey,
+      payer: localPubkey,
       addresses: additionalAccounts
         .flat()
         .slice(lastSize, lastSize + batchSize)
@@ -151,7 +152,7 @@ async function extendLookupTable<I extends anchor.Idl>(
       lookupTable,
     });
 
-    await sendTransaction(program.provider.connection, [ix]);
+    await sendTransaction(connection, [ix]);
     lastSize += batchSize;
   }
   return lastSize;
@@ -159,15 +160,14 @@ async function extendLookupTable<I extends anchor.Idl>(
 
 async function pollForActiveLookupTable(
   additionalAccounts: anchor.web3.AccountMeta[],
-  program: anchor.Program<any>,
+  connection: anchor.web3.Connection,
   lookupTable: anchor.web3.PublicKey
 ) {
   let activeSlut = false;
   while (!activeSlut) {
-    let table = await program.provider.connection.getAddressLookupTable(
-      lookupTable,
-      { commitment: "finalized" }
-    );
+    let table = await connection.getAddressLookupTable(lookupTable, {
+      commitment: "finalized",
+    });
     if (table.value) {
       activeSlut =
         table.value.isActive() &&
@@ -175,6 +175,10 @@ async function pollForActiveLookupTable(
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
+}
+
+export function hashIxName(ixName: string): Buffer {
+  return Buffer.from(sha256(`global:${ixName}`)).slice(0, 8);
 }
 
 /**
@@ -186,7 +190,7 @@ async function pollForActiveLookupTable(
  * @returns
  */
 export async function additionalAccountsRequest<I extends anchor.Idl>(
-  program: anchor.Program<I>,
+  connection: anchor.web3.Connection,
   instruction: anchor.web3.TransactionInstruction,
   methodName: string,
   verbose: boolean = false,
@@ -203,10 +207,7 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   // Overwrite the discriminator
   let currentBuffer = Buffer.from(instruction.data);
 
-  let newIxDisc = Buffer.from(sha256(`global:preflight_${methodName}`)).slice(
-    0,
-    8
-  );
+  let newIxDisc = hashIxName(`preflight_${methodName}`);
   currentBuffer.set(newIxDisc, 0);
 
   let additionalAccounts: anchor.web3.AccountMeta[] = [];
@@ -228,7 +229,7 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
     instruction.keys = originalKeys.concat(additionalAccounts.flat());
 
     let result = await resolveRemainingAccounts(
-      program,
+      connection,
       [instruction],
       verbose,
       lookupTable
@@ -240,18 +241,18 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
     hasMore = result.hasMore;
     additionalAccounts = additionalAccounts.concat(result.accounts);
 
+    let localKp = getLocalKp().publicKey;
     if (additionalAccounts.length >= 10 && slut) {
       if (!lookupTable) {
         const [ix, tableAddr] =
           anchor.web3.AddressLookupTableProgram.createLookupTable({
-            authority: program.provider.publicKey!,
-            payer: program.provider.publicKey!,
-            recentSlot: (
-              await program.provider.connection.getLatestBlockhashAndContext()
-            ).context.slot,
+            authority: localKp,
+            payer: localKp,
+            recentSlot: (await connection.getLatestBlockhashAndContext())
+              .context.slot,
           });
 
-        await sendTransaction(program.provider.connection, [ix]);
+        await sendTransaction(connection, [ix]);
         lookupTable = tableAddr;
       }
 
@@ -267,12 +268,12 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
         lastSize = await extendLookupTable(
           additionalAccounts,
           lastSize,
-          program,
+          connection,
           lookupTable
         );
         await pollForActiveLookupTable(
           additionalAccounts,
-          program,
+          connection,
           lookupTable
         );
         if (verbose) {
@@ -288,8 +289,13 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   }
 
   if (slut && lookupTable) {
-    await extendLookupTable(additionalAccounts, lastSize, program, lookupTable);
-    await pollForActiveLookupTable(additionalAccounts, program, lookupTable);
+    await extendLookupTable(
+      additionalAccounts,
+      lastSize,
+      connection,
+      lookupTable
+    );
+    await pollForActiveLookupTable(additionalAccounts, connection, lookupTable);
   }
 
   instruction.keys = originalKeys.concat(additionalAccounts);

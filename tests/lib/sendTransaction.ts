@@ -20,6 +20,14 @@ export const PRE_INSTRUCTIONS = [
   }),
 ];
 
+export function getLocalKp(): anchor.web3.Keypair {
+  return anchor.web3.Keypair.fromSecretKey(
+    Buffer.from(
+      JSON.parse(readFileSync(`${homedir()}/.config/solana/id.json`).toString())
+    )
+  );
+}
+
 export async function sendTransaction(
   connection: anchor.web3.Connection,
   ixs: anchor.web3.TransactionInstruction[],
@@ -29,12 +37,7 @@ export async function sendTransaction(
     lookupTableAddress: undefined,
   }
 ): Promise<{ computeUnits: number }> {
-  let kp = anchor.web3.Keypair.fromSecretKey(
-    Buffer.from(
-      JSON.parse(readFileSync(`${homedir()}/.config/solana/id.json`).toString())
-    )
-  );
-
+  let kp = getLocalKp();
   let lookupTable: anchor.web3.AddressLookupTableAccount | undefined;
   if (opts.lookupTableAddress) {
     lookupTable = (

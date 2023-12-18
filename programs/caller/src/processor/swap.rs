@@ -12,8 +12,6 @@ use callee::{
     state::{Node, OwnershipList},
 };
 
-use super::transfer;
-
 #[derive(Accounts)]
 pub struct Swap<'info> {
     /// CHECK:

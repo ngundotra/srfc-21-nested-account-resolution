@@ -6,7 +6,12 @@ import { assert } from "chai";
 import { additionalAccountsRequest } from "./lib/additionalAccountsRequest";
 import { Caller } from "../target/types/caller";
 import { PRE_INSTRUCTIONS, sendTransaction } from "./lib/sendTransaction";
-import { sha256 } from "@noble/hashes/sha256";
+import {
+  callSwapOnDelegate,
+  callTransferOnBase,
+  callTransferOnDelegate,
+  callTransferOnSuperDelegate,
+} from "./lib/interface";
 
 type ObjectCreationMeta = {
   metas: anchor.web3.AccountMeta[];
@@ -165,26 +170,15 @@ describe("nested-account-resolution", () => {
       );
       assert(node.next === null);
 
-      let ix = await program.methods
-        .transferLinkedList(destination)
-        .accounts({
-          headNode,
-          owner: payer,
-        })
-        .instruction();
-
-      const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-        program,
-        ix,
-        "transfer_linked_list"
+      const computeUnits = await callTransferOnBase(
+        provider.connection,
+        program.programId,
+        "transfer_linked_list",
+        {
+          object: headNode,
+          destination,
+        }
       );
-      ix = _ix;
-
-      const computeUnits = (
-        await sendTransaction(provider.connection, [ix], {
-          lookupTableAddress: lookupTable,
-        })
-      ).computeUnits;
       console.log({ num: 1, computeUnits });
 
       await validateLinkedListTransfer(program, [nodeKp], 1, destination);
@@ -208,26 +202,15 @@ describe("nested-account-resolution", () => {
         });
 
         it(`Can transfer a linked list (${NUM_NODES})`, async () => {
-          let ix = await program.methods
-            .transferLinkedList(destination)
-            .accounts({
-              headNode,
-              owner: payer,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            program,
-            ix,
-            "transfer_linked_list"
+          const computeUnits = await callTransferOnBase(
+            provider.connection,
+            program.programId,
+            "transfer_linked_list",
+            {
+              object: headNode,
+              destination,
+            }
           );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
-            })
-          ).computeUnits;
           console.log({ num: NUM_NODES, computeUnits });
 
           await validateLinkedListTransfer(
@@ -239,29 +222,15 @@ describe("nested-account-resolution", () => {
         });
 
         it(`Can transfer a linked list (${NUM_NODES}) via CPI`, async () => {
-          let ix = await caller.methods
-            .transfer()
-            .accounts({
-              program: program.programId,
+          const computeUnits = await callTransferOnDelegate(
+            provider.connection,
+            caller.programId,
+            {
+              programId: program.programId,
               object: headNode,
-              owner: payer,
               destination,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            caller,
-            ix,
-            "transfer"
+            }
           );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
-            })
-          ).computeUnits;
-
           console.log({ num: NUM_NODES, computeUnits });
 
           await validateLinkedListTransfer(
@@ -274,30 +243,16 @@ describe("nested-account-resolution", () => {
 
         it(`Can transfer a linked list (${NUM_NODES}) via CPI-CPI`, async () => {
           // Now perform the thing
-          let ix = await callerWrapper.methods
-            .transfer()
-            .accounts({
-              delegateProgram: caller.programId,
-              program: program.programId,
+          const computeUnits = await callTransferOnSuperDelegate(
+            provider.connection,
+            callerWrapper.programId,
+            {
+              delegateProgramId: caller.programId,
+              programId: program.programId,
               object: headNode,
-              owner: payer,
               destination,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            callerWrapper,
-            ix,
-            "transfer"
+            }
           );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
-            })
-          ).computeUnits;
-
           console.log({ num: NUM_NODES, computeUnits });
 
           await validateLinkedListTransfer(
@@ -310,6 +265,7 @@ describe("nested-account-resolution", () => {
       });
     }
   });
+
   describe("Ownership List tests", () => {
     // for (const i of [131, 200, 230]) {
     // for (const i of [125]) (works on devnet account resolution)
@@ -338,28 +294,18 @@ describe("nested-account-resolution", () => {
         });
 
         it(`Can transfer an ownership list (${NUM_NODES})`, async () => {
-          let ix = await program.methods
-            .transferOwnershipList(destination)
-            .accounts({
-              ownershipList,
-              owner: payer,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            program,
-            ix,
+          const computeUnits = await callTransferOnBase(
+            provider.connection,
+            program.programId,
             "transfer_ownership_list",
-            false,
-            true
+            {
+              object: ownershipList,
+              destination,
+            },
+            {
+              useLookupTable: true,
+            }
           );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
-            })
-          ).computeUnits;
 
           console.log({ num: NUM_NODES, computeUnits });
           await validateOwnershipListTransfer(
@@ -370,30 +316,18 @@ describe("nested-account-resolution", () => {
         });
 
         it(`Can transfer an ownership list (${NUM_NODES}) via CPI`, async () => {
-          let ix = await caller.methods
-            .transfer()
-            .accounts({
-              program: program.programId,
+          const computeUnits = await callTransferOnDelegate(
+            provider.connection,
+            caller.programId,
+            {
+              programId: program.programId,
               object: ownershipList,
-              owner: payer,
               destination,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            caller,
-            ix,
-            "transfer",
-            false,
-            true
+            },
+            {
+              useLookupTable: true,
+            }
           );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
-            })
-          ).computeUnits;
 
           console.log({ num: NUM_NODES, computeUnits });
           await validateOwnershipListTransfer(
@@ -405,32 +339,19 @@ describe("nested-account-resolution", () => {
 
         it(`Can transfer an ownership list (${NUM_NODES}) via CPI-CPI`, async () => {
           // Now perform the thing
-          let ix = await callerWrapper.methods
-            .transfer()
-            .accounts({
-              delegateProgram: caller.programId,
-              program: program.programId,
+          const computeUnits = await callTransferOnSuperDelegate(
+            provider.connection,
+            callerWrapper.programId,
+            {
+              delegateProgramId: caller.programId,
+              programId: program.programId,
               object: ownershipList,
-              owner: payer,
               destination,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            callerWrapper,
-            ix,
-            "transfer",
-            false,
-            true
+            },
+            {
+              useLookupTable: true,
+            }
           );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
-            })
-          ).computeUnits;
-
           console.log({ num: NUM_NODES, computeUnits });
 
           await validateOwnershipListTransfer(
@@ -490,33 +411,21 @@ describe("nested-account-resolution", () => {
         });
 
         it("Can swap ownership list for ownership list", async () => {
-          // Now perform the thing
-          let ix = await caller.methods
-            .swap()
-            .accounts({
-              program: program.programId,
-              objectA: ownershipListA,
+          const computeUnits = await callSwapOnDelegate(
+            provider.connection,
+            caller.programId,
+            {
+              programId: program.programId,
               ownerA: payer,
+              objectA: ownershipListA,
+              ownerB,
               objectB: ownershipListB,
-              ownerB: ownerB,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            caller,
-            ix,
-            "swap",
-            false,
-            true
-          );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
+            },
+            {
+              useLookupTable: true,
               signers: [ownerBKp],
-            })
-          ).computeUnits;
+            }
+          );
 
           console.log({ num: NUM_NODES, computeUnits });
           await validateOwnershipListTransfer(program, ownershipListA, ownerB);
@@ -552,32 +461,21 @@ describe("nested-account-resolution", () => {
         });
 
         it("Can swap linked list for linked list", async () => {
-          let ix = await caller.methods
-            .swap()
-            .accounts({
-              program: program.programId,
-              objectA: linkedListA,
+          const computeUnits = await callSwapOnDelegate(
+            provider.connection,
+            caller.programId,
+            {
+              programId: program.programId,
               ownerA: payer,
+              objectA: linkedListA,
+              ownerB,
               objectB: linkedListB,
-              ownerB: ownerB,
-            })
-            .instruction();
-
-          const { ix: _ix, lookupTable } = await additionalAccountsRequest(
-            caller,
-            ix,
-            "swap",
-            false,
-            true
-          );
-          ix = _ix;
-
-          const computeUnits = (
-            await sendTransaction(provider.connection, [ix], {
-              lookupTableAddress: lookupTable,
+            },
+            {
+              useLookupTable: true,
               signers: [ownerBKp],
-            })
-          ).computeUnits;
+            }
+          );
 
           console.log({ num: NUM_NODES, computeUnits });
           await validateLinkedListTransfer(
