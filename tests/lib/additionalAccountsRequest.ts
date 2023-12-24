@@ -6,6 +6,7 @@ import {
   sendTransaction,
 } from "./sendTransaction";
 import { ProgramTestContext } from "solana-bankrun";
+import { getAddressLookupTable, getLatestBlockhash, getSlot } from "./utils";
 
 type AdditionalAccounts = {
   accounts: anchor.web3.AccountMeta[];
@@ -38,11 +39,7 @@ export async function resolveRemainingAccounts(
       console.log(`SLUT resolution with ${slut.toBase58()}`);
     }
     while (!lookupTable) {
-      lookupTable = (
-        await connection.getAddressLookupTable(slut, {
-          commitment: "confirmed",
-        })
-      ).value;
+      lookupTable = await getAddressLookupTable(connection, slut);
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
@@ -51,9 +48,7 @@ export async function resolveRemainingAccounts(
     payerKey: getLocalKp().publicKey!,
     instructions: PRE_INSTRUCTIONS.concat(instructions),
     addressLookupTableAccounts: slut ? [lookupTable] : undefined,
-    recentBlockhash: !!GLOBAL_CONTEXT
-      ? (await GLOBAL_CONTEXT.banksClient.getLatestBlockhash("confirmed"))[0]
-      : (await connection.getRecentBlockhash()).blockhash,
+    recentBlockhash: await getLatestBlockhash(connection),
   });
   let transaction = new anchor.web3.VersionedTransaction(message);
 
@@ -68,6 +63,7 @@ export async function resolveRemainingAccounts(
       "confirmed"
     );
     logs = simulationResult.meta.logMessages;
+    // For some reason, still getting null from #[napi(getter)] on return_data
     // returnData = Buffer.from(simulationResult.meta.returnData);
     unitsConsumed = parseInt(
       simulationResult.meta.computeUnitsConsumed.toString()
@@ -190,17 +186,22 @@ async function pollForActiveLookupTable(
   connection: anchor.web3.Connection,
   lookupTable: anchor.web3.PublicKey
 ) {
-  let activeSlut = false;
-  while (!activeSlut) {
-    let table = await connection.getAddressLookupTable(lookupTable, {
-      commitment: "finalized",
-    });
-    if (table.value) {
-      activeSlut =
-        table.value.isActive() &&
-        table.value.state.addresses.length === additionalAccounts.length;
+  if (!GLOBAL_CONTEXT) {
+    let activeSlut = false;
+    while (!activeSlut) {
+      let table = await connection.getAddressLookupTable(lookupTable, {
+        commitment: "finalized",
+      });
+      if (table.value) {
+        activeSlut =
+          table.value.isActive() &&
+          table.value.state.addresses.length === additionalAccounts.length;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  } else {
+    let slot = (await getSlot(connection)) + 2;
+    GLOBAL_CONTEXT.warpToSlot(BigInt(slot));
   }
 }
 
@@ -275,8 +276,7 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
           anchor.web3.AddressLookupTableProgram.createLookupTable({
             authority: localKp,
             payer: localKp,
-            recentSlot: (await connection.getLatestBlockhashAndContext())
-              .context.slot,
+            recentSlot: await getSlot(connection),
           });
 
         await sendTransaction(connection, [ix]);

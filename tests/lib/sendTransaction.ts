@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { homedir } from "os";
 import { ProgramTestContext } from "solana-bankrun";
 import { GLOBAL_CONTEXT } from "./additionalAccountsRequest";
+import { getAddressLookupTable, getLatestBlockhash } from "./utils";
 
 type Opts = {
   logs?: boolean;
@@ -42,11 +43,11 @@ export async function sendTransaction(
   let kp = getLocalKp();
   let lookupTable: anchor.web3.AddressLookupTableAccount | undefined;
   if (opts.lookupTableAddress) {
-    lookupTable = (
-      await connection.getAddressLookupTable(opts.lookupTableAddress, {
-        commitment: "finalized",
-      })
-    ).value;
+    lookupTable = await getAddressLookupTable(
+      connection,
+      opts.lookupTableAddress,
+      "finalized"
+    );
   }
 
   let numReplays = 0;
@@ -56,11 +57,7 @@ export async function sendTransaction(
         payerKey: kp.publicKey,
         instructions: PRE_INSTRUCTIONS.concat(ixs),
         addressLookupTableAccounts: lookupTable ? [lookupTable] : undefined,
-        recentBlockhash: !!GLOBAL_CONTEXT
-          ? (
-              await GLOBAL_CONTEXT.banksClient.getLatestBlockhash("confirmed")
-            )[0]
-          : (await connection.getRecentBlockhash()).blockhash,
+        recentBlockhash: await getLatestBlockhash(connection),
       });
       let transaction = new anchor.web3.VersionedTransaction(message);
 

@@ -7,7 +7,7 @@ import {
 } from "../../target/types/caller_wrapper";
 import { Caller, IDL as CallerIDL } from "../../target/types/caller";
 import { startAnchor } from "solana-bankrun";
-import { setGlobalContext } from "./additionalAccountsRequest";
+import { GLOBAL_CONTEXT, setGlobalContext } from "./additionalAccountsRequest";
 import { getLocalKp } from "./sendTransaction";
 import { BankrunProvider } from "anchor-bankrun";
 import { parse } from "toml";
@@ -95,6 +95,88 @@ export async function validateOwnershipListTransfer(
   );
 
   assert(ownershipList.owner.toBase58() === destination.toBase58());
+}
+
+export async function getSlot(connection: anchor.web3.Connection) {
+  return !!GLOBAL_CONTEXT
+    ? parseInt(
+        ((await GLOBAL_CONTEXT.banksClient.getSlot()) - BigInt(1)).toString()
+      )
+    : (await connection.getLatestBlockhashAndContext()).context.slot;
+}
+
+export async function getLatestBlockhash(connection: anchor.web3.Connection) {
+  return !!GLOBAL_CONTEXT
+    ? (await GLOBAL_CONTEXT.banksClient.getLatestBlockhash("confirmed"))[0]
+    : (await connection.getRecentBlockhash()).blockhash;
+}
+
+export async function getAddressLookupTable(
+  connection: anchor.web3.Connection,
+  table: anchor.web3.PublicKey,
+  commitment: anchor.web3.Commitment = "confirmed"
+): Promise<anchor.web3.AddressLookupTableAccount | null> {
+  if (!!GLOBAL_CONTEXT) {
+    const data = await GLOBAL_CONTEXT.banksClient.getAccount(table);
+
+    const deactivationSlot = BigInt(
+      new anchor.BN(data.data.slice(0, 8), "le").toString()
+    );
+    const lastExtendedSlot = new anchor.BN(
+      data.data.slice(8, 16),
+      "le"
+    ).toNumber();
+    const lastExtendedSlotStartIndex = data.data[20];
+    const authority = new anchor.web3.PublicKey(data.data.slice(22, 54));
+    const addresses: anchor.web3.PublicKey[] = [];
+    for (let i = 0; i < (data.data.length - 56) / 32; i++) {
+      addresses.push(
+        new anchor.web3.PublicKey(
+          data.data.slice(56 + 32 * i, 56 + 32 + 32 * i)
+        )
+      );
+    }
+    return new anchor.web3.AddressLookupTableAccount({
+      key: table,
+      state: {
+        deactivationSlot,
+        lastExtendedSlot,
+        lastExtendedSlotStartIndex,
+        authority,
+        addresses,
+      },
+    });
+  } else {
+    return (
+      await connection.getAddressLookupTable(table, {
+        commitment,
+      })
+    ).value;
+  }
+}
+
+export async function airdrop(
+  connection: anchor.web3.Connection,
+  destination: anchor.web3.PublicKey,
+  sol: number
+) {
+  if (!!GLOBAL_CONTEXT) {
+    GLOBAL_CONTEXT.setAccount(destination, {
+      /** `true` if this account's data contains a loaded program */
+      executable: false,
+      /** Identifier of the program that owns the account */
+      owner: anchor.web3.SystemProgram.programId,
+      /** Number of lamports assigned to the account */
+      lamports: sol * anchor.web3.LAMPORTS_PER_SOL,
+      /** Optional data assigned to the account */
+      data: Buffer.from([]),
+    });
+  } else {
+    await connection.requestAirdrop(
+      destination,
+      sol * anchor.web3.LAMPORTS_PER_SOL
+    );
+  }
 }
 
 export async function setupBankrun() {

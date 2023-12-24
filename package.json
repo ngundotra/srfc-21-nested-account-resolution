@@ -2,12 +2,13 @@
     "scripts": {
         "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
         "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-        "test": "jest"
+        "test": "jest --detectOpenHandles --runInBand"
     },
     "dependencies": {
         "@coral-xyz/anchor": "^0.29.0",
         "@noble/hashes": "^1.3.2",
         "anchor-bankrun": "^0.3.0",
+        "solana-bankrun": "^0.2.0",
         "toml": "^3.0.0"
     },
     "devDependencies": {

@@ -3,7 +3,6 @@ import { Program } from "@coral-xyz/anchor";
 import { CallerWrapper } from "../target/types/caller_wrapper";
 import { Callee } from "../target/types/callee";
 import { assert } from "chai";
-import { additionalAccountsRequest } from "./lib/additionalAccountsRequest";
 import { Caller } from "../target/types/caller";
 import { PRE_INSTRUCTIONS, sendTransaction } from "./lib/sendTransaction";
 import {
@@ -14,24 +13,28 @@ import {
 } from "./lib/interface";
 import {
   ObjectCreationMeta,
+  airdrop,
   createLinkedList,
+  setupBankrun,
   validateLinkedListTransfer,
   validateOwnershipListTransfer,
 } from "./lib/utils";
 
 describe("nested-account-resolution", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+  let provider: anchor.Provider;
+  let program: Program<Callee>;
+  let caller: Program<Caller>;
+  let callerWrapper: Program<CallerWrapper>;
+  let payer: anchor.web3.PublicKey;
 
-  const program = anchor.workspace.Callee as Program<Callee>;
-
-  const caller = anchor.workspace.Caller as Program<Caller>;
-
-  const callerWrapper = anchor.workspace
-    .CallerWrapper as Program<CallerWrapper>;
-
-  const provider = anchor.getProvider();
-  const payer = provider.publicKey;
+  beforeEach(async () => {
+    const setup = await setupBankrun();
+    provider = setup.provider;
+    program = setup.callee;
+    caller = setup.caller;
+    callerWrapper = setup.callerWrapper;
+    payer = setup.provider.publicKey;
+  });
 
   describe.skip("Base costs", () => {
     it("Return data 1024", async () => {
@@ -300,10 +303,7 @@ describe("nested-account-resolution", () => {
         let ownershipListKpB: anchor.web3.Keypair;
         let ownershipListB: anchor.web3.PublicKey;
         beforeEach(async () => {
-          await provider.connection.requestAirdrop(
-            ownerB,
-            1 * anchor.web3.LAMPORTS_PER_SOL
-          );
+          await airdrop(provider.connection, ownerB, 1);
 
           ownershipListKpA = anchor.web3.Keypair.generate();
           ownershipListA = ownershipListKpA.publicKey;
@@ -368,10 +368,7 @@ describe("nested-account-resolution", () => {
         let linkedListB: anchor.web3.PublicKey;
         let listBInfo: ObjectCreationMeta;
         beforeEach(async () => {
-          await provider.connection.requestAirdrop(
-            ownerB,
-            1 * anchor.web3.LAMPORTS_PER_SOL
-          );
+          await airdrop(provider.connection, ownerB, 1);
 
           listAInfo = await createLinkedList(program, NUM_NODES);
           linkedListA = listAInfo.signers[0].publicKey;

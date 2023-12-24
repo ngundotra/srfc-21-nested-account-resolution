@@ -3,5 +3,6 @@ module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
   verbose: true,
-  testMatch: ["**/tests/bankrun.ts"],
+  testMatch: ["**/tests/nested-account-resolution.ts"],
+  testTimeout: 10000,
 };
