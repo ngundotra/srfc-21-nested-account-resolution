@@ -12,87 +12,12 @@ import {
   callTransferOnDelegate,
   callTransferOnSuperDelegate,
 } from "./lib/interface";
-
-type ObjectCreationMeta = {
-  metas: anchor.web3.AccountMeta[];
-  signers: anchor.web3.Keypair[];
-};
-
-async function createOwnershipList(
-  program: anchor.Program<Callee>,
-  numNodes: number,
-  opts?: {
-    payer?: anchor.web3.Keypair;
-  }
-): Promise<ObjectCreationMeta> {
-  let headKp: anchor.web3.Keypair = null;
-
-  let nodeKps: anchor.web3.Keypair[] = [];
-  let nodeMetas: anchor.web3.AccountMeta[] = [];
-  nodeKps = [];
-  nodeMetas = [];
-  for (let i = 0; i < numNodes; i++) {
-    let kp = anchor.web3.Keypair.generate();
-    nodeKps.push(kp);
-    nodeMetas.push({
-      pubkey: kp.publicKey,
-      isWritable: true,
-      isSigner: true,
-    });
-  }
-  headKp = nodeKps[0];
-
-  // Override payer & signers if provided
-  let payer: anchor.web3.PublicKey;
-  let signers = nodeKps;
-  if (opts && opts.payer) {
-    payer = opts.payer.publicKey ?? program.provider.publicKey!;
-    signers = [opts.payer].concat(signers);
-  }
-
-  await program.methods
-    .createLinkedList(numNodes)
-    .accounts({ payer })
-    .remainingAccounts(nodeMetas)
-    .signers(signers)
-    .rpc({ skipPreflight: true, commitment: "confirmed" });
-
-  return { metas: nodeMetas, signers: nodeKps };
-}
-
-async function validateLinkedListTransfer(
-  program: anchor.Program<Callee>,
-  nodeKps: anchor.web3.Keypair[],
-  numNodes: number,
-  destination: anchor.web3.PublicKey
-) {
-  let nodes = await program.account.node.fetchMultiple(
-    nodeKps.map((kp) => kp.publicKey),
-    "confirmed"
-  );
-
-  for (let i = 0; i < numNodes - 1; i++) {
-    assert(nodes[i].owner.toBase58() === destination.toBase58());
-    assert(
-      nodes[i].next.toString() === nodeKps[i + 1].publicKey.toString(),
-      `${i}th node's next is not correct!`
-    );
-  }
-  assert(nodes[numNodes - 1].next === null);
-}
-
-async function validateOwnershipListTransfer(
-  program: anchor.Program<Callee>,
-  ownershipListKey: anchor.web3.PublicKey,
-  destination: anchor.web3.PublicKey
-) {
-  let ownershipList = await program.account.ownershipList.fetch(
-    ownershipListKey,
-    "confirmed"
-  );
-
-  assert(ownershipList.owner.toBase58() === destination.toBase58());
-}
+import {
+  ObjectCreationMeta,
+  createLinkedList,
+  validateLinkedListTransfer,
+  validateOwnershipListTransfer,
+} from "./lib/utils";
 
 describe("nested-account-resolution", () => {
   // Configure the client to use the local cluster.
@@ -192,10 +117,7 @@ describe("nested-account-resolution", () => {
         let nodeKps: anchor.web3.Keypair[] = [];
         let nodeMetas: anchor.web3.AccountMeta[] = [];
         beforeEach(async () => {
-          const { metas, signers } = await createOwnershipList(
-            program,
-            NUM_NODES
-          );
+          const { metas, signers } = await createLinkedList(program, NUM_NODES);
           nodeKps = signers;
           nodeMetas = metas;
           headNode = nodeKps[0].publicKey;
@@ -451,10 +373,10 @@ describe("nested-account-resolution", () => {
             1 * anchor.web3.LAMPORTS_PER_SOL
           );
 
-          listAInfo = await createOwnershipList(program, NUM_NODES);
+          listAInfo = await createLinkedList(program, NUM_NODES);
           linkedListA = listAInfo.signers[0].publicKey;
 
-          listBInfo = await createOwnershipList(program, NUM_NODES, {
+          listBInfo = await createLinkedList(program, NUM_NODES, {
             payer: ownerBKp,
           });
           linkedListB = listBInfo.signers[0].publicKey;

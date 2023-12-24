@@ -174,3 +174,8 @@ Swapping Linked Lists for Linked Lists
 | CPI       | 1                                          | 49984          |
 | CPI       | 2                                          | 54107          |
 | CPI       | 9                                          | 85240          |
+
+
+### Contributing
+
+Note that this repo requires `solana-bankrun` to be built locally & linked with `yarn link solana-bankrun`.

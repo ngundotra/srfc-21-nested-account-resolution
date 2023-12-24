@@ -5,11 +5,17 @@ import {
   getLocalKp,
   sendTransaction,
 } from "./sendTransaction";
+import { ProgramTestContext } from "solana-bankrun";
 
 type AdditionalAccounts = {
   accounts: anchor.web3.AccountMeta[];
   hasMore: boolean;
 };
+
+export let GLOBAL_CONTEXT: ProgramTestContext | null = null;
+export function setGlobalContext(context: ProgramTestContext) {
+  GLOBAL_CONTEXT = context;
+}
 
 const MAX_ACCOUNTS = 30;
 
@@ -45,18 +51,40 @@ export async function resolveRemainingAccounts(
     payerKey: getLocalKp().publicKey!,
     instructions: PRE_INSTRUCTIONS.concat(instructions),
     addressLookupTableAccounts: slut ? [lookupTable] : undefined,
-    recentBlockhash: (await connection.getRecentBlockhash()).blockhash,
+    recentBlockhash: !!GLOBAL_CONTEXT
+      ? (await GLOBAL_CONTEXT.banksClient.getLatestBlockhash("confirmed"))[0]
+      : (await connection.getRecentBlockhash()).blockhash,
   });
   let transaction = new anchor.web3.VersionedTransaction(message);
 
-  let simulationResult = await connection.simulateTransaction(transaction, {
-    commitment: "confirmed",
-  });
+  // let simulationResult;
+  let unitsConsumed: number;
+  let returnData: Buffer;
+  let logs: string[];
+  let err: any;
+  if (!!GLOBAL_CONTEXT) {
+    let simulationResult = await GLOBAL_CONTEXT.banksClient.simulateTransaction(
+      transaction,
+      "confirmed"
+    );
+    logs = simulationResult.meta.logMessages;
+    // returnData = Buffer.from(simulationResult.meta.returnData);
+    unitsConsumed = parseInt(
+      simulationResult.meta.computeUnitsConsumed.toString()
+    );
+  } else {
+    let simulationResult = await connection.simulateTransaction(transaction, {
+      commitment: "confirmed",
+    });
+    logs = simulationResult.value.logs;
+    unitsConsumed = simulationResult.value.unitsConsumed;
+    err = simulationResult.value.err;
+  }
 
   if (verbose) {
-    console.log("CUs consumed:", simulationResult.value.unitsConsumed);
-    console.log("Logs", simulationResult.value.logs);
-    console.log("Result", simulationResult.value.err);
+    console.log("CUs consumed:", unitsConsumed);
+    console.log("Logs", logs);
+    console.log("Result", err);
   }
 
   // When the simulation RPC response is fixed, then the following code will work
@@ -71,7 +99,6 @@ export async function resolveRemainingAccounts(
   //   throw new Error("Unsupported encoding: " + encoding);
   // }
   // ===============================================================
-  let logs = simulationResult.value.logs;
 
   try {
     let b64Data = anchor.utils.bytes.base64.decode(
@@ -82,7 +109,7 @@ export async function resolveRemainingAccounts(
     if (!data.length) {
       throw new Error(
         `No return data found in preflight simulation:
-      ${simulationResult.value.logs}`
+      ${logs}`
       );
     }
 

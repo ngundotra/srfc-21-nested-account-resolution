@@ -1,6 +1,8 @@
 import * as anchor from "@coral-xyz/anchor";
 import { readFileSync } from "fs";
 import { homedir } from "os";
+import { ProgramTestContext } from "solana-bankrun";
+import { GLOBAL_CONTEXT } from "./additionalAccountsRequest";
 
 type Opts = {
   logs?: boolean;
@@ -54,7 +56,11 @@ export async function sendTransaction(
         payerKey: kp.publicKey,
         instructions: PRE_INSTRUCTIONS.concat(ixs),
         addressLookupTableAccounts: lookupTable ? [lookupTable] : undefined,
-        recentBlockhash: (await connection.getRecentBlockhash()).blockhash,
+        recentBlockhash: !!GLOBAL_CONTEXT
+          ? (
+              await GLOBAL_CONTEXT.banksClient.getLatestBlockhash("confirmed")
+            )[0]
+          : (await connection.getRecentBlockhash()).blockhash,
       });
       let transaction = new anchor.web3.VersionedTransaction(message);
 
@@ -71,6 +77,11 @@ export async function sendTransaction(
         }
 
         return { computeUnits: simulationResult.value.unitsConsumed };
+      } else if (!!GLOBAL_CONTEXT) {
+        const meta = await (
+          GLOBAL_CONTEXT as ProgramTestContext
+        ).banksClient.processTransaction(transaction);
+        return { computeUnits: parseInt(meta.computeUnitsConsumed.toString()) };
       } else {
         transaction.sign([kp]);
         transaction.sign(opts.signers ?? []);
