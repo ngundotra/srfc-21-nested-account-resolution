@@ -2,6 +2,16 @@
 
 Examples in `tests/`
 
+# Introduction
+This specification presents an innovative approach to account resolution. It is crafted to make the Solana ecosystem more accessible, secure, and user-friendly.
+
+The advent of Program Interfaces represents a pivotal moment for Solana. It enables users to interact with programs directly through a block explorer, regardless of their technical expertise. This approach democratizes access while significantly bolstering the security and transparency of program interactions.
+
+Central to this specification are Minimal Instruction Account Metas Interfaces (MIAMI) and their associated Preflight Instructions, which are crucial in simplifying and securing program interactions.
+
+This specification also emphasizes the need to de-risk both program development and usage. The shift towards facilitating interactions with arbitrary on-chain programs via HTML forms and RPC requests is peak decentralization. It reduces dependence on hosted frontends and program SDKs, marking a significant step toward a more empowered user experience.
+
+This is a blueprint for a more inclusive, secure, and efficient Solana. The goal is to provide a clear understanding of the proposed enhancements and their implications.
 
 # Resolution Strategies
 
