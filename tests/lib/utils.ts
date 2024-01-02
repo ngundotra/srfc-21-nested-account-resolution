@@ -6,6 +6,10 @@ import {
   IDL as CallerWrapperIDL,
 } from "../../target/types/caller_wrapper";
 import { Caller, IDL as CallerIDL } from "../../target/types/caller";
+import {
+  HydraGeneric,
+  IDL as HydraGenericIdl,
+} from "../../target/types/hydra_generic";
 import { startAnchor } from "solana-bankrun";
 import { GLOBAL_CONTEXT, setGlobalContext } from "./additionalAccountsRequest";
 import { getLocalKp } from "./sendTransaction";
@@ -61,9 +65,13 @@ export async function createLinkedList(
   return { metas: nodeMetas, signers: nodeKps };
 }
 
+interface PublicKeyGetter {
+  publicKey: anchor.web3.PublicKey;
+}
+
 export async function validateLinkedListTransfer(
   program: anchor.Program<Callee>,
-  nodeKps: anchor.web3.Keypair[],
+  nodeKps: PublicKeyGetter[],
   numNodes: number,
   destination: anchor.web3.PublicKey
 ) {
@@ -220,10 +228,18 @@ export async function setupBankrun() {
     new anchor.web3.PublicKey(programs.caller_wrapper),
     provider
   );
+
+  const hydraGeneric = new anchor.Program<HydraGeneric>(
+    HydraGenericIdl,
+    new anchor.web3.PublicKey(programs.hydra_generic),
+    provider
+  );
+
   return {
     callee,
     caller,
     callerWrapper,
+    hydraGeneric,
     provider,
     context,
   };

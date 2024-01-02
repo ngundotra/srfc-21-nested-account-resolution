@@ -6,8 +6,11 @@ pub mod state;
 
 // Need this to be able to get ExternalIAccountMeta into IDLs
 // Please remove once ExternalIAccountMeta is a normal type in Anchor
+use processor::add_keypair_node::*;
+use processor::add_pda_node::*;
 use processor::create_linked_list::*;
 use processor::create_ownership_list::*;
+use processor::init_linked_list_head_node::*;
 use processor::return_data::*;
 use processor::transfer_linked_list::*;
 use processor::transfer_ownership_list::*;
@@ -55,6 +58,45 @@ pub mod callee {
     ) -> Result<()> {
         processor::create_linked_list::create_linked_list(ctx, num)
     }
+
+    /// Explorer-usable initialization instructions
+    ///
+    pub fn preflight_init_linked_list_head_node<'info>(
+        ctx: Context<'_, '_, '_, 'info, InitLinkedListHeadNodeReadonly<'info>>,
+    ) -> Result<()> {
+        processor::init_linked_list_head_node::preflight_init_linked_list_head_node(ctx)
+    }
+
+    pub fn init_linked_list_head_node<'info>(
+        ctx: Context<'_, '_, '_, 'info, InitLinkedListHeadNode<'info>>,
+    ) -> Result<()> {
+        processor::init_linked_list_head_node::init_linked_list_head_node(ctx)
+    }
+
+    pub fn preflight_add_pda_node<'info>(
+        ctx: Context<'_, '_, '_, 'info, AddPdaNodeReadonly<'info>>,
+    ) -> Result<()> {
+        processor::add_pda_node::preflight_add_pda_node(ctx)
+    }
+
+    /// Add PDA Node
+    pub fn add_pda_node<'info>(ctx: Context<'_, '_, '_, 'info, AddPdaNode<'info>>) -> Result<()> {
+        processor::add_pda_node::add_pda_node(ctx)
+    }
+
+    pub fn preflight_add_keypair_node<'info>(
+        ctx: Context<'_, '_, '_, 'info, AddKeypairNodeReadonly<'info>>,
+    ) -> Result<()> {
+        processor::add_keypair_node::preflight_add_keypair_node(ctx)
+    }
+
+    pub fn add_keypair_node<'info>(
+        ctx: Context<'_, '_, '_, 'info, AddKeypairNode<'info>>,
+    ) -> Result<()> {
+        processor::add_keypair_node::add_keypair_node(ctx)
+    }
+    ///
+    /// END
 
     /// Test usefulness of account paging
     pub fn create_ownership_list<'info>(

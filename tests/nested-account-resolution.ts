@@ -6,6 +6,7 @@ import { assert } from "chai";
 import { Caller } from "../target/types/caller";
 import { PRE_INSTRUCTIONS, sendTransaction } from "./lib/sendTransaction";
 import {
+  call,
   callSwapOnDelegate,
   callTransferOnBase,
   callTransferOnDelegate,
@@ -110,6 +111,79 @@ describe("nested-account-resolution", () => {
       console.log({ num: 1, computeUnits });
 
       await validateLinkedListTransfer(program, [nodeKp], 1, destination);
+    });
+
+    it("Can build linked list with keypair node and pda node", async () => {
+      const nodeKp = anchor.web3.Keypair.generate();
+      let headNode = nodeKp.publicKey;
+      let txid = await program.methods
+        .initLinkedListHeadNode()
+        .accounts({ payer, node: nodeKp.publicKey })
+        .signers([nodeKp])
+        .rpc({ skipPreflight: true, commitment: "confirmed" });
+
+      const newNodeKp = anchor.web3.Keypair.generate();
+      let cu = await call(
+        provider.connection,
+        program.programId,
+        "add_keypair_node",
+        [
+          { pubkey: payer, isSigner: true, isWritable: false },
+          { pubkey: nodeKp.publicKey, isSigner: false, isWritable: true },
+          { pubkey: newNodeKp.publicKey, isSigner: true, isWritable: true },
+        ],
+        Buffer.from([]),
+        { signers: [newNodeKp] }
+      );
+      console.log(`Keypair node CU: ${cu}`);
+
+      cu = await call(
+        provider.connection,
+        program.programId,
+        "add_pda_node",
+        [
+          { pubkey: payer, isSigner: true, isWritable: false },
+          { pubkey: newNodeKp.publicKey, isSigner: false, isWritable: true },
+        ],
+        Buffer.from([])
+      );
+      console.log(`Pda node CU: ${cu}`);
+
+      let nodeAcc = await program.account.node.fetch(
+        newNodeKp.publicKey,
+        "confirmed"
+      );
+      console.log(`Pda node: ${nodeAcc.next.toBase58()}`);
+
+      await validateLinkedListTransfer(
+        program,
+        [nodeKp.publicKey, newNodeKp.publicKey, nodeAcc.next].map((pkey) => {
+          return { publicKey: pkey };
+        }),
+        3,
+        program.provider.publicKey!
+      );
+
+      cu = await callTransferOnBase(
+        provider.connection,
+        program.programId,
+        "transfer_linked_list",
+        {
+          authority: program.provider.publicKey,
+          object: nodeKp.publicKey,
+          destination,
+        }
+      );
+      console.log(`Transfer cu: ${cu}`);
+
+      await validateLinkedListTransfer(
+        program,
+        [nodeKp.publicKey, newNodeKp.publicKey, nodeAcc.next].map((pkey) => {
+          return { publicKey: pkey };
+        }),
+        3,
+        destination
+      );
     });
 
     for (const i of [1, 2, 10]) {

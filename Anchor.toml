@@ -5,9 +5,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
+callee = "8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA"
 caller = "8dHQbAAjuxANBSjsEdFMF4d5wMfTS3Ro2DTLaawBLvJ3"
 caller_wrapper = "BoU7xvB9ZUrSxpRsYaeKbjj5Xv7MdR2YiSRgMgwoij6k"
-callee = "8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA"
+hydra_generic = "CJAFX8XgZnTNPbVRUFBYda2b43KzzL7cyVVWFJD9rBby"
 
 [registry]
 url = "https://api.apr.dev"
