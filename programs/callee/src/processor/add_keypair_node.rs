@@ -39,6 +39,7 @@ pub fn add_keypair_node<'info>(
     let parent_node = &mut ctx.accounts.parent_node;
     let new_node = &mut ctx.accounts.new_node;
     new_node.owner = ctx.accounts.payer.key();
+    new_node.id = parent_node.id.checked_add(1).unwrap();
     parent_node.next = Some(new_node.key());
     Ok(())
 }

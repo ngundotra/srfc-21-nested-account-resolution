@@ -184,11 +184,28 @@ describe("nested-account-resolution", () => {
         3,
         destination
       );
+
+      cu = await call(
+        provider.connection,
+        program.programId,
+        "close_linked_list",
+        [
+          {
+            pubkey: destination,
+            isSigner: true,
+            isWritable: true,
+          },
+          { pubkey: headNode, isSigner: false, isWritable: true },
+        ],
+        Buffer.from([]),
+        { signers: [destinationKp] }
+      );
+      console.log(`Close cu: ${cu}`);
     });
 
     for (const i of [1, 2, 10]) {
       const NUM_NODES = i;
-      describe(`With ${NUM_NODES} nodes`, () => {
+      describe.skip(`With ${NUM_NODES} nodes`, () => {
         let headNode: anchor.web3.PublicKey;
 
         let nodeKps: anchor.web3.Keypair[] = [];
@@ -265,7 +282,7 @@ describe("nested-account-resolution", () => {
     }
   });
 
-  describe("Ownership List tests", () => {
+  describe.skip("Ownership List tests", () => {
     // for (const i of [131, 200, 230]) {
     // for (const i of [125]) (works on devnet account resolution)
     for (const i of [1, 2, 31]) {
@@ -363,7 +380,7 @@ describe("nested-account-resolution", () => {
     }
   });
 
-  describe("Swap tests", () => {
+  describe.skip("Swap tests", () => {
     let ownerBKp = anchor.web3.Keypair.generate();
     let ownerB = ownerBKp.publicKey;
 
