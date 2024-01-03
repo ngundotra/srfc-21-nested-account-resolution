@@ -1,5 +1,5 @@
 use crate::state::Node;
-use additional_accounts_request::{AdditionalAccounts, IAccountMeta, MAX_ACCOUNTS};
+use additional_accounts_request::AdditionalAccounts;
 use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 
 pub fn close<'info>(
@@ -19,7 +19,7 @@ pub fn close<'info>(
 #[derive(Accounts)]
 pub struct CloseLinkedList<'info> {
     pub owner: Signer<'info>,
-    #[account(mut, has_one = owner)]
+    #[account(mut, has_one = owner, close=owner)]
     pub head_node: Account<'info, Node>,
 }
 

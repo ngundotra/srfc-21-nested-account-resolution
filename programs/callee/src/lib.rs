@@ -18,6 +18,13 @@ use processor::transfer_ownership_list::*;
 
 declare_id!("8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA");
 
+/// Example program for building linked lists of pubkeys, transferring them,
+/// and closing them. What's unique about this program is that NO SDK is needed
+/// to use its instructions. Instead, each one of these program instructions will derive
+/// the correct accounts for the instruction based on the user's inputs.
+/// The best example of this is in transferLinkedList and closedLinkedList. These instructions
+/// modify the whole linked list at once, but only requires 1 head node account to derive the
+/// rest of the accounts. More information about how this is done can be found at https://github.com/ngundotra/srfc-21-nested-account-resolution
 #[program]
 pub mod callee {
     use super::*;
