@@ -1,6 +1,6 @@
 use crate::state::Node;
 use additional_accounts_request::AdditionalAccounts;
-use anchor_lang::{prelude::*, solana_program::program::set_return_data};
+use anchor_lang::{accounts::account_info, prelude::*, solana_program::program::set_return_data};
 
 pub fn close<'info>(
     info: AccountInfo<'info>,
@@ -46,12 +46,6 @@ pub fn close_linked_list<'info>(
             );
             return Err(ProgramError::InvalidInstructionData.into());
         }
-
-        // let derived = Pubkey::find_program_address(
-        //     &[&current_key.to_bytes(), "linked_list".as_bytes()],
-        //     &crate::id(),
-        // )
-        // .0;
 
         close(current_ai, &mut owner)?;
 
