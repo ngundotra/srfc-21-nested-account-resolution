@@ -2473,6 +2473,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "universal-mint"
+version = "0.1.0"
+dependencies = [
+ "additional-accounts-request",
+ "anchor-lang",
+ "anchor-spl",
+ "bytemuck",
+]
+
+[[package]]
 name = "uriparse"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

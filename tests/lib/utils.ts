@@ -7,6 +7,10 @@ import {
 } from "../../target/types/caller_wrapper";
 import { Caller, IDL as CallerIDL } from "../../target/types/caller";
 import {
+  UniversalMint,
+  IDL as UniversalMintIdl,
+} from "../../target/types/universal_mint";
+import {
   HydraGeneric,
   IDL as HydraGenericIdl,
 } from "../../target/types/hydra_generic";
@@ -17,6 +21,11 @@ import { BankrunProvider } from "anchor-bankrun";
 import { parse } from "toml";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { token } from "@coral-xyz/anchor/dist/cjs/utils";
+
+export const TOKEN_PROGRAM_2022_ID = new anchor.web3.PublicKey(
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+);
 
 export type ObjectCreationMeta = {
   metas: anchor.web3.AccountMeta[];
@@ -188,7 +197,31 @@ export async function airdrop(
 }
 
 export async function setupBankrun() {
-  const context = await startAnchor(join(__dirname, "../.."), [], []);
+  const connection = new anchor.web3.Connection(
+    "https://api.devnet.solana.com"
+  );
+  const token22Info = await connection.getAccountInfo(TOKEN_PROGRAM_2022_ID);
+  const token22Executable = new anchor.web3.PublicKey(
+    "DoU57AYuPFu2QU514RktNPG22QhApEjnKxnBcu4BHDTY"
+  );
+  const token22ExecutableInfo = await connection.getAccountInfo(
+    token22Executable
+  );
+
+  const context = await startAnchor(
+    join(__dirname, "../.."),
+    [],
+    [
+      {
+        address: TOKEN_PROGRAM_2022_ID,
+        info: token22Info,
+      },
+      {
+        address: token22Executable,
+        info: token22ExecutableInfo,
+      },
+    ]
+  );
 
   setGlobalContext(context);
 
@@ -235,11 +268,18 @@ export async function setupBankrun() {
     provider
   );
 
+  const universalMint = new anchor.Program<UniversalMint>(
+    UniversalMintIdl,
+    new anchor.web3.PublicKey(programs.universal_mint),
+    provider
+  );
+
   return {
     callee,
     caller,
     callerWrapper,
     hydraGeneric,
+    universalMint,
     provider,
     context,
   };
