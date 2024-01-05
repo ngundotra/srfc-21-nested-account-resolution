@@ -3,7 +3,7 @@ use additional_accounts_request::AdditionalAccounts;
 use anchor_lang::{accounts::account_info, prelude::*, solana_program::program::set_return_data};
 
 pub fn close<'info>(
-    info: AccountInfo<'info>,
+    info: &AccountInfo<'info>,
     sol_destination: &mut AccountInfo<'info>,
 ) -> Result<()> {
     // Transfer tokens from the account to the sol_destination.
@@ -27,32 +27,30 @@ pub fn close_linked_list<'info>(
     ctx: Context<'_, '_, 'info, 'info, CloseLinkedList<'info>>,
 ) -> Result<()> {
     let mut owner = ctx.accounts.owner.to_account_info();
+    msg!("Owner lamports start: {}", owner.lamports());
 
     let current_node = &mut ctx.accounts.head_node;
 
-    let mut current_ai = current_node.to_account_info();
     let mut current_node = current_node.clone().into_inner();
 
     let mut accounts_iter = ctx.remaining_accounts.into_iter();
     while current_node.next.is_some() {
-        let next_node = current_node.next.unwrap();
-        let next_acct = next_account_info(&mut accounts_iter)?;
+        let expected_value = current_node.next.unwrap();
+        let current_ai = next_account_info(&mut accounts_iter)?;
 
-        if next_acct.key() != next_node {
+        if *current_ai.key != expected_value {
             msg!(
                 "Invalid account {}, was expecting: {}",
-                next_acct.key(),
-                next_node
+                current_ai.key,
+                expected_value
             );
             return Err(ProgramError::InvalidInstructionData.into());
         }
 
+        current_node = Account::<Node>::try_from(current_ai)?.into_inner();
         close(current_ai, &mut owner)?;
-
-        current_ai = next_acct.clone();
-        let next_node_acct = Account::<Node>::try_from(next_acct)?;
-        current_node = next_node_acct.clone().into_inner();
     }
+    msg!("Owner lamports final: {}", owner.lamports());
 
     Ok(())
 }
