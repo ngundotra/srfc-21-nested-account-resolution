@@ -2480,6 +2480,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bytemuck",
+ "spl-token-metadata-interface",
 ]
 
 [[package]]

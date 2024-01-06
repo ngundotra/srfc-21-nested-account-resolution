@@ -23,11 +23,21 @@ pub mod universal_mint {
         processor::create_spl_token_extension(ctx, decimals)
     }
 
+    /// Create an SPL Token Extension mint with metadata
+    /// and mint your self the only in circulation
     pub fn create_spl_token_extension_metadata(
         ctx: Context<CreateSplToken22Metadata>,
         name: String,
         description: String,
     ) -> Result<()> {
         processor::create_spl_token_extension_metadata(ctx, name, description)
+    }
+
+    pub fn preflight_create_spl_token_extension_metadata(
+        ctx: Context<CreateSplToken22MetadataReadonly>,
+        name: String,
+        description: String,
+    ) -> Result<()> {
+        processor::preflight_create_spl_token_extension_metadata(ctx, name, description)
     }
 }

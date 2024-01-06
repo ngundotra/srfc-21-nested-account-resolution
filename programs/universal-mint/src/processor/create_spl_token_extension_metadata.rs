@@ -1,16 +1,19 @@
-use crate::state::metadata_info::MetadataInfo;
+use crate::state::MetadataInfo;
+use additional_accounts_request::AdditionalAccounts;
 use anchor_lang::prelude::*;
 
+use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::solana_program::system_instruction;
 use anchor_spl::{
     associated_token::AssociatedToken, token_2022::mint_to,
     token_2022::spl_token_2022::extension::metadata_pointer, token_interface::Token2022,
 };
 use anchor_spl::{
-    associated_token::{self, get_associated_token_address},
+    associated_token::{self, get_associated_token_address_with_program_id},
     token_2022::MintTo,
     token_interface::spl_token_2022::extension::ExtensionType,
 };
+use bytemuck::bytes_of;
 
 #[derive(Accounts)]
 #[instruction(name: String, description: String)]
@@ -28,6 +31,76 @@ pub struct CreateSplToken22Metadata<'info> {
     token_program: Program<'info, Token2022>,
     associated_token_program: Program<'info, AssociatedToken>,
     system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CreateSplToken22MetadataReadonly<'info> {
+    /// CHECK:
+    payer: UncheckedAccount<'info>,
+    /// CHECK:
+    mint: UncheckedAccount<'info>,
+}
+
+pub fn preflight_create_spl_token_extension_metadata(
+    ctx: Context<CreateSplToken22MetadataReadonly>,
+    name: String,
+    description: String,
+) -> Result<()> {
+    let payer = &ctx.accounts.payer;
+    let mint = &ctx.accounts.mint;
+
+    let mut accounts = AdditionalAccounts::new();
+
+    let ata = get_associated_token_address_with_program_id(payer.key, mint.key, &Token2022::id());
+    let metadata_pointer = Pubkey::find_program_address(
+        &[
+            &mint.key.to_bytes(),
+            "token22".as_bytes(),
+            &"metadata_pointer".as_bytes(),
+        ],
+        &crate::id(),
+    )
+    .0;
+
+    let token_program = Token2022::id();
+    let associated_token_program = AssociatedToken::id();
+    let system_program = System::id();
+
+    let to_check = &[
+        (&ata, true),
+        (&metadata_pointer, true),
+        (&token_program, false),
+        (&associated_token_program, false),
+        (&system_program, false),
+    ];
+
+    let mut last_idx = 0;
+    for account in ctx.remaining_accounts.iter() {
+        let (acc_to_check, mut_check) = to_check.get(last_idx).unwrap();
+
+        if account.key != *acc_to_check {
+            msg!("Missing {}", *acc_to_check);
+            return Err(ProgramError::InvalidInstructionData.into());
+        }
+
+        if account.is_writable != *mut_check {
+            msg!(
+                "Expected {} to have isWritable: {}, but is {}",
+                account.key,
+                *mut_check,
+                account.is_writable
+            );
+            return Err(ProgramError::InvalidInstructionData.into());
+        }
+        last_idx += 1;
+    }
+
+    for (acc, writability) in to_check[last_idx..].iter() {
+        accounts.add_account(acc, *writability)?;
+    }
+
+    set_return_data(bytes_of(&accounts));
+    Ok(())
 }
 
 pub fn create_spl_token_extension_metadata(

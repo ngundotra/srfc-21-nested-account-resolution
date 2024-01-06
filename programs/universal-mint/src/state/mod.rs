@@ -1,1 +1,2 @@
-pub mod metadata_info;
+mod metadata_info;
+pub use metadata_info::*;

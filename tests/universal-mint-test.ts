@@ -69,18 +69,46 @@ describe("nested-account-resolution", () => {
           [payer.toBuffer(), TOKEN_PROGRAM_2022_ID.toBuffer(), mint.toBuffer()],
           ASSOCIATED_PROGRAM_ID
         )[0];
-        const txId = await program.methods
-          .createSplTokenExtensionMetadata(name, description)
-          .accounts({
-            payer,
-            mint,
-            ata,
-            associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
-            tokenProgram: TOKEN_PROGRAM_2022_ID,
-          })
-          .preInstructions(PRE_INSTRUCTIONS)
-          .signers([mintKp])
-          .rpc({ skipPreflight: false, commitment: "confirmed" });
+
+        // const txId = await program.methods
+        //   .preflightCreateSplTokenExtensionMetadata(name, description)
+        //   .accounts({
+        //     payer,
+        //     mint,
+        //   })
+        //   .preInstructions(PRE_INSTRUCTIONS)
+        //   // .signers([mintKp])
+        //   .rpc({ skipPreflight: false, commitment: "confirmed" });
+
+        // const txId = await program.methods
+        //   .createSplTokenExtensionMetadata(name, description)
+        //   .accounts({
+        //     payer,
+        //     mint,
+        //     ata,
+        //     associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
+        //     tokenProgram: TOKEN_PROGRAM_2022_ID,
+        //   })
+        //   .preInstructions(PRE_INSTRUCTIONS)
+        //   .signers([mintKp])
+        //   .rpc({ skipPreflight: false, commitment: "confirmed" });
+
+        const txId = await call(
+          provider.connection,
+          program.programId,
+          "create_spl_token_extension_metadata",
+          [
+            { pubkey: payer, isSigner: true, isWritable: true },
+            { pubkey: mint, isSigner: true, isWritable: true },
+          ],
+          Buffer.concat([
+            Buffer.from(new anchor.BN(name.length).toArray("le", 4)),
+            Uint8Array.from(Buffer.from(name, "utf-8")),
+            Buffer.from(new anchor.BN(description.length).toArray("le", 4)),
+            Uint8Array.from(Buffer.from(description, "utf-8")),
+          ]),
+          { signers: [mintKp], verbose: true }
+        );
 
         let metadataPointer = anchor.web3.PublicKey.findProgramAddressSync(
           [
