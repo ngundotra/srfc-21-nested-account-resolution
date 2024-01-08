@@ -12,7 +12,7 @@ import {
 
 import { TOKEN_PROGRAM_2022_ID } from "./lib/utils";
 
-describe("nested-account-resolution", () => {
+describe("universal-mint-tests", () => {
   let provider: anchor.Provider;
   let program: Program<UniversalMint>;
   let payer: anchor.web3.PublicKey;
