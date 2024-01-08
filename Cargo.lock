@@ -1075,16 +1075,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
-name = "hydra_generic"
-version = "0.1.0"
-dependencies = [
- "additional-accounts-request",
- "anchor-lang",
- "anchor-spl",
- "bytemuck",
-]
-
-[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1245,16 +1235,6 @@ name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
-
-[[package]]
-name = "lut_manager"
-version = "0.1.0"
-dependencies = [
- "additional-accounts-request",
- "anchor-lang",
- "bytemuck",
- "spl-token-metadata-interface",
-]
 
 [[package]]
 name = "memchr"

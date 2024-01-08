@@ -10,10 +10,6 @@ import {
   UniversalMint,
   IDL as UniversalMintIdl,
 } from "../../target/types/universal_mint";
-import {
-  HydraGeneric,
-  IDL as HydraGenericIdl,
-} from "../../target/types/hydra_generic";
 import { startAnchor } from "solana-bankrun";
 import { GLOBAL_CONTEXT, setGlobalContext } from "./additionalAccountsRequest";
 import { getLocalKp } from "./sendTransaction";
@@ -262,12 +258,6 @@ export async function setupBankrun() {
     provider
   );
 
-  const hydraGeneric = new anchor.Program<HydraGeneric>(
-    HydraGenericIdl,
-    new anchor.web3.PublicKey(programs.hydra_generic),
-    provider
-  );
-
   const universalMint = new anchor.Program<UniversalMint>(
     UniversalMintIdl,
     new anchor.web3.PublicKey(programs.universal_mint),
@@ -278,7 +268,6 @@ export async function setupBankrun() {
     callee,
     caller,
     callerWrapper,
-    hydraGeneric,
     universalMint,
     provider,
     context,
