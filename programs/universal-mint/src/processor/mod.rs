@@ -6,3 +6,6 @@ pub use create_spl_token_extension::*;
 
 mod create_spl_token;
 pub use create_spl_token::*;
+
+mod transfer_token;
+pub use transfer_token::*;

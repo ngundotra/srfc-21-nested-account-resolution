@@ -40,4 +40,19 @@ pub mod universal_mint {
     ) -> Result<()> {
         processor::preflight_create_spl_token_extension_metadata(ctx, name, description)
     }
+
+    /// Transfers ownership of 1 amount from the owner to the destination
+    pub fn transfer_token<'info>(
+        ctx: Context<'_, '_, '_, 'info, TransferToken<'info>>,
+        amount: u64,
+    ) -> Result<()> {
+        processor::transfer_token(ctx, amount)
+    }
+
+    pub fn preflight_transfer_token<'info>(
+        ctx: Context<'_, '_, '_, 'info, TransferTokenReadonly<'info>>,
+        amount: u64,
+    ) -> Result<()> {
+        processor::preflight_transfer_token(ctx, amount)
+    }
 }

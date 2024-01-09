@@ -167,6 +167,12 @@ export async function call(
       keys: accounts,
     });
 
+  if (opts?.verbose) {
+    console.log(
+      "Initial keys",
+      ix.keys.map((k) => k.pubkey.toBase58()).join("\n")
+    );
+  }
   const { ix: _ix, lookupTable } = await additionalAccountsRequest(
     connection,
     ix,
@@ -175,6 +181,13 @@ export async function call(
     opts?.useLookupTable ?? false
   );
   ix = _ix;
+
+  if (opts?.verbose) {
+    console.log(
+      "Final keys",
+      ix.keys.map((k) => k.pubkey.toBase58()).join("\n")
+    );
+  }
 
   const computeUnits = (
     await sendTransaction(connection, [ix], {
