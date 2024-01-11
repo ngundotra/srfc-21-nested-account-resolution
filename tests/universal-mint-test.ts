@@ -116,7 +116,7 @@ describe("universal-mint-tests", () => {
         const name = "name";
         const description = "description";
 
-        let txId = await call(
+        let computeUnits = await call(
           provider.connection,
           program.programId,
           "create_spl_token_extension_metadata",
@@ -148,7 +148,7 @@ describe("universal-mint-tests", () => {
           tokenInfo,
         });
 
-        txId = await call(
+        computeUnits = await call(
           provider.connection,
           program.programId,
           "transfer_token",
@@ -159,6 +159,16 @@ describe("universal-mint-tests", () => {
           ],
           Buffer.concat([Buffer.from(new anchor.BN(1).toArray("le", 8))])
         );
+
+        // const txId = await program.methods
+        //   .describe()
+        //   .accounts({ asset: mint })
+        //   .rpc({ skipPreflight: true, commitment: "confirmed" });
+
+        // const txId = await program
+        //   .methods()
+        //   .accounts({ asset: mint })
+        //   .rpc({ skipPreflight: true, commitment: "confirmed" });
       });
     });
   });
