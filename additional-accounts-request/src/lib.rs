@@ -1,4 +1,3 @@
-use anchor_lang::accounts::signer;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::log::sol_log_compute_units;
 use anchor_lang::solana_program::program::MAX_RETURN_DATA;
@@ -176,7 +175,6 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
     // This is really meant to page all accounts, page by page
     // to get all the account metas to send
     let mut has_more = true;
-    let mut page = 0;
     while has_more {
         let accs = resolve_additional_accounts(ix_name.clone(), ctx, args, log_info)?;
 
@@ -201,7 +199,6 @@ pub fn identify_additional_accounts<'info, C1: ToAccountInfos<'info> + ToAccount
         }
 
         has_more = accs.has_more == 1;
-        page += 1;
     }
 
     Ok(additional_accounts)
