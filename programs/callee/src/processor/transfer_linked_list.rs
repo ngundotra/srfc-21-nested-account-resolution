@@ -1,5 +1,5 @@
 use crate::state::Node;
-use additional_accounts_request::{AdditionalAccounts, IAccountMeta, MAX_ACCOUNTS};
+use additional_accounts_request::AdditionalAccounts;
 use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 
 #[derive(Accounts)]

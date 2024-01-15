@@ -1,6 +1,6 @@
 use crate::state::Node;
 use additional_accounts_request::AdditionalAccounts;
-use anchor_lang::{accounts::account_info, prelude::*, solana_program::program::set_return_data};
+use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 
 pub fn close<'info>(
     info: &AccountInfo<'info>,

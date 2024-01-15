@@ -1,5 +1,5 @@
 use additional_accounts_request::AdditionalAccounts;
-use anchor_lang::{prelude::*, solana_program::program_pack::Pack};
+use anchor_lang::prelude::*;
 
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_spl::associated_token::{AssociatedToken, Create};

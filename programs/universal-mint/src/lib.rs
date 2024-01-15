@@ -73,7 +73,7 @@ pub mod universal_mint {
     /// TODO(ngundotra): use anchor 0.30 pre-build to make this work
     /// requires using #[interface] to generate a namespaced discriminator
     pub mod spl_token_metadata_interface {
-        use ::spl_token_metadata_interface::{borsh::BorshSchema, state::TokenMetadata};
+        use ::spl_token_metadata_interface::state::TokenMetadata;
         use anchor_lang::solana_program::program::set_return_data;
 
         use super::*;
