@@ -1,101 +1,26 @@
 # SRFC 21 - Nested Account Resolution
 
-Examples in `tests/`
+Helper library is available at `additional-accounts-request`.
+
+Examples of how to implement and use `additional-accounts-request` in `programs`.
 
 # Introduction
-This specification presents an innovative approach to account resolution. It is crafted to make the Solana ecosystem more accessible, secure, and user-friendly.
 
-The advent of Program Interfaces represents a pivotal moment for Solana. It enables users to interact with programs directly through a block explorer, regardless of their technical expertise. This approach democratizes access while significantly bolstering the security and transparency of program interactions.
+This specification presents a solution to account resolution when using unknown programs on Solana. It is crafted to make the Solana ecosystem more accessible, secure, and user-friendly.
 
-Central to this specification are Minimal Instruction Account Metas Interfaces (MIAMI) and their associated Preflight Instructions, which are crucial in simplifying and securing program interactions.
+Central to this specification are Minimal Set of Accounts (MSAs) which are the smallest set of accounts required to execute a program instruction. 
+An instruction's MSA is defined by the accounts required by its `aar` (additional accounts request) instruction.
+Additional accounts can be requested through iterative simulation of the `aar` instruction, which returns a list of additional accounts required to execute the instruction.
 
-This specification also emphasizes the need to de-risk both program development and usage. The shift towards facilitating interactions with arbitrary on-chain programs via HTML forms and RPC requests is peak decentralization. It reduces dependence on hosted frontends and program SDKs, marking a significant step toward a more empowered user experience.
+This spec enables users to interact with programs directly through a block explorer, regardless of their technical expertise, whenever program developers provide a `aar` instruction. This approach democratizes access and increases the demand for security and transparency of program interactions.
 
-This is a blueprint for a more inclusive, secure, and efficient Solana. The goal is to provide a clear understanding of the proposed enhancements and their implications.
+The goal is to make the next generation of smart contract development flourish on Solana. 
 
-# Resolution Strategies
-
-### 1 - Intra VM Preflight
-
-Program X needs remaining accounts in a specified order
-You can deliver it to them by asking X for the ordering of accounts that it needs
-
-Pros: 
-- easier to integrate with existing programs
-
-
-Cons: 
-- this doubles the deserialization work done by X, so CU expensive
-- potentially unsafe to be passing around signatures more than necessary
-
-### 2 - Iterative expansion
-
-Same idea as 1, except iteratively deepen the preflight, starting with bare mininum of accounts.
-
-Pros:
-- mimicks off-chain logic exactly
-
-Cons:
-- Multiplies effort of runtime to do same action, which is derive accounts
-- not anymore secure than other interactions
-
-### 3 - Send all accounts
-
-Since the security model is that we're basically giving program X full reign & control over our accounts,
-might as well just give them everything, and let them decide what to do with it.
-
-Pro:
-- simple to write
-- cheaper on CU
-- just as secure as other methods
-
-Cons:
-- potentially unsafe to build marketplaces because the bag of unknown accounts can grow dramatically
-
-
-# Note to Self
-
-- `git stash pop` to get iterative stuff back
-- Right now I'm in the middle of switching all `execute` paths to just give all remaining accounts to each program
-
-# Patterns & Concepts
-
-### Automatic Account Resolution for TransactionInstructions
-
-Programs can adhere to interfaces, even with different account derivation schemes,
- by defining instructions in their IDL that conform to Minimal Instruction Account
- Meta Interfaces.
-
- MIAMI instructions require a minimal set of accounts that have semantic definitions, like `owner`, `destination`, or `authority`, and may optionally define a longer list of additional accounts that it needs to complete successfully.
-
- These additional accounts must be derived through iteratively simulating a separate `preflight` instruction that defines these additional accounts through its return data. 
-
- Each MIAMI instruction must have its own valid preflight instruction that defines its additional accounts. The corresponding `preflight` instruction can be found by prepending `preflight_` to MIAMI instruction's name.
-
- Off-chain clients must compose a Transaction Instruction against a MIAMI instruction by appending the list of account metas as defined by the return data of its `preflight` instruction.
-
-
-Two concepts here:
-- Minimal Instruction Account Metas Interfaces (MIAMI)
-- Preflight instructions
-
-### MIAMI Account Separation
-
-When executing multiple CPIs to MIAMI instructions, 
-it can become difficult to know which of your additional accounts
-belong to which CPI call.
-
-An example application would be a p2p marketplace that has to execute a
-two MIAMI `transfer` instructions between parties.
-
-We propose a method for solving this that uses `delimiter` pubkeys 
-in the preflight payload.
-
-# Hosted Features
+# Work that is outside the scope of this sRFC
 
 ### Automatic Lookup Table Creation
 
-Coming soon
+Example code is provided for constructing tables for large transactions, but there is no harnessing in place to tear down unused tables.
 
 ### Indexing (see `ngundotra/crud-indexing`)
 
@@ -184,8 +109,3 @@ Swapping Linked Lists for Linked Lists
 | CPI       | 1                                          | 49984          |
 | CPI       | 2                                          | 54107          |
 | CPI       | 9                                          | 85240          |
-
-
-### Contributing
-
-Note that this repo requires `solana-bankrun` to be built locally & linked with `yarn link solana-bankrun`.
