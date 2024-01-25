@@ -74,7 +74,7 @@ pub mod universal_mint {
         processor::describe(ctx)
     }
 
-    #[ix(namespace = "spl_token_metadata_interface", name = "emitter")]
+    #[ix(namespace = "spl_token_metadata_interface")]
     pub fn emitter<'info>(
         ctx: Context<'_, '_, '_, 'info, Token2022Emitter<'info>>,
         start: Option<u64>,
@@ -84,9 +84,10 @@ pub mod universal_mint {
         let token_metadata = TokenMetadata {
             update_authority: Some(metadata.key()).try_into()?,
             mint: metadata.key(),
-            uri: "".to_string(),
-            name: "".to_string(),
-            ..Default::default()
+            uri: "a".to_string(),
+            name: "b".to_string(),
+            symbol: "c".to_string(),
+            additional_metadata: vec![],
         };
 
         let metadata_bytes = token_metadata.try_to_vec()?;

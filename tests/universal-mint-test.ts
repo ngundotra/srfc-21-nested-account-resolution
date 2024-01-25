@@ -3,15 +3,21 @@ import { Program } from "@coral-xyz/anchor";
 import { assert } from "chai";
 import { PRE_INSTRUCTIONS } from "./lib/sendTransaction";
 import { call } from "./lib/interface";
-import { setupBankrun } from "./lib/utils";
+import { getLatestBlockhash, setupBankrun } from "./lib/utils";
 import { UniversalMint } from "../target/types/universal_mint";
 import { getAccount } from "@solana/spl-token";
 import {
   ASSOCIATED_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@coral-xyz/anchor/dist/cjs/utils/token";
+import {
+  createEmitInstruction,
+  TokenMetadata,
+  unpack as deserializeTokenMetadata,
+} from "@solana/spl-token-metadata";
 
 import { TOKEN_PROGRAM_2022_ID } from "./lib/utils";
+import { GLOBAL_CONTEXT } from "./lib/additionalAccountsRequest";
 
 describe("universal-mint-tests", () => {
   let provider: anchor.Provider;
@@ -63,7 +69,7 @@ describe("universal-mint-tests", () => {
           .rpc({ skipPreflight: false, commitment: "confirmed" });
       });
 
-      it.skip(`(token22) initialize mint + metadata`, async () => {
+      it(`(token22) initialize mint + metadata`, async () => {
         const name = "name";
         const description = "description";
 
@@ -111,8 +117,31 @@ describe("universal-mint-tests", () => {
         );
         assert(accountInfo.name === name);
         assert(accountInfo.description === description);
+
+        const ixs = [
+          createEmitInstruction({
+            metadata: metadataPointer,
+            programId: program.programId,
+          }),
+        ];
+        const message = anchor.web3.MessageV0.compile({
+          payerKey: payer,
+          recentBlockhash: await getLatestBlockhash(provider.connection),
+          instructions: ixs,
+        });
+        const res = await GLOBAL_CONTEXT.banksClient.simulateTransaction(
+          new anchor.web3.VersionedTransaction(message)
+        );
+
+        const tm = deserializeTokenMetadata(
+          Buffer.from(Array.from(res.meta.returnData.data))
+        );
+        console.log("Token Metadata", tm);
+        assert.equal(tm.uri, "a");
+        assert.equal(tm.name, "b");
+        assert.equal(tm.symbol, "c");
       });
-      it(`(token22) transfer token metadata thing`, async () => {
+      it.skip(`(token22) transfer token metadata thing`, async () => {
         const name = "name";
         const description = "description";
 
