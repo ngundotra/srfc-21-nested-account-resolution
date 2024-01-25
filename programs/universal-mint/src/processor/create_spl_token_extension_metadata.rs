@@ -26,7 +26,7 @@ pub struct CreateSplToken22Metadata<'info> {
     #[account(mut)]
     ata: UncheckedAccount<'info>,
     /// CHECK:
-    #[account(init, space = 8 + 4 + name.len() + 4 + description.len(), payer=payer, seeds=[&mint.key.to_bytes(), "token22".as_bytes(), &"metadata_pointer".as_bytes()], bump)]
+    #[account(init, space = 8 + 32 + 32 + 4 + name.len() + 4 + description.len(), payer=payer, seeds=[&mint.key.to_bytes(), "token22".as_bytes(), &"metadata_pointer".as_bytes()], bump)]
     metadata_pointer: Account<'info, MetadataInfo>,
     token_program: Program<'info, Token2022>,
     associated_token_program: Program<'info, AssociatedToken>,
@@ -117,6 +117,8 @@ pub fn create_spl_token_extension_metadata(
 
     // Write to the metadata pointer
     let metadata_pointer = &mut ctx.accounts.metadata_pointer;
+    metadata_pointer.update_authority = payer.key();
+    metadata_pointer.mint = mint.key();
     metadata_pointer.name = name.clone();
     metadata_pointer.description = description.clone();
 

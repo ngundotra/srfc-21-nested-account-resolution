@@ -82,8 +82,8 @@ pub mod universal_mint {
     ) -> Result<()> {
         let metadata = &ctx.accounts.metadata;
         let token_metadata = TokenMetadata {
-            update_authority: Some(metadata.key()).try_into()?,
-            mint: metadata.key(),
+            update_authority: Some(metadata.update_authority).try_into()?,
+            mint: metadata.mint,
             uri: "a".to_string(),
             name: "b".to_string(),
             symbol: "c".to_string(),

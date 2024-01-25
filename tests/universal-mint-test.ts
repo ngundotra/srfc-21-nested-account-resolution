@@ -140,6 +140,16 @@ describe("universal-mint-tests", () => {
         assert.equal(tm.uri, "a");
         assert.equal(tm.name, "b");
         assert.equal(tm.symbol, "c");
+        assert.equal(
+          tm.updateAuthority.toBase58(),
+          payer.toBase58(),
+          "Expected update authority to be payer"
+        );
+        assert.equal(
+          tm.mint.toBase58(),
+          mint.toBase58(),
+          "Expected mint to be correct"
+        );
       });
       it.skip(`(token22) transfer token metadata thing`, async () => {
         const name = "name";
