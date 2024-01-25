@@ -15,9 +15,9 @@ import { GLOBAL_CONTEXT, setGlobalContext } from "./additionalAccountsRequest";
 import { getLocalKp } from "./sendTransaction";
 import { BankrunProvider } from "anchor-bankrun";
 import { parse } from "toml";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { token } from "@coral-xyz/anchor/dist/cjs/utils";
+import { exec } from "child_process";
 
 export const TOKEN_PROGRAM_2022_ID = new anchor.web3.PublicKey(
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
@@ -193,30 +193,47 @@ export async function airdrop(
 }
 
 export async function setupBankrun() {
-  const connection = new anchor.web3.Connection(
-    "https://api.devnet.solana.com"
-  );
-  const token22Info = await connection.getAccountInfo(TOKEN_PROGRAM_2022_ID);
-  const token22Executable = new anchor.web3.PublicKey(
-    "DoU57AYuPFu2QU514RktNPG22QhApEjnKxnBcu4BHDTY"
-  );
-  const token22ExecutableInfo = await connection.getAccountInfo(
-    token22Executable
-  );
+  const config = {
+    defaultUrl: "https://api.devnet.solana.com",
+    programs: [
+      {
+        programId: TOKEN_PROGRAM_2022_ID,
+        name: "token2022",
+      },
+      {
+        programId: new anchor.web3.PublicKey(
+          "8bvPnYE5Pvz2Z9dE6RAqWr1rzLknTndZ9hwvRE6kPDXP"
+        ),
+        name: "libreplex_fair_launch",
+      },
+    ],
+  };
+
+  // Downloads & caches programs
+  for (const program of config.programs) {
+    const directory = join(__dirname, "../../tests/fixtures");
+    if (!existsSync(directory)) {
+      mkdirSync(directory);
+    }
+
+    if (!existsSync(join(directory, `${program.name}.so`))) {
+      const { stderr } = exec(
+        `solana program dump ${program.programId} ${directory}/${program.name}.so -u ${config.defaultUrl}`
+      );
+      if (stderr) {
+        console.error(stderr);
+        console.error(
+          `Error caching program: ${program.name} from ${config.defaultUrl}.`
+        );
+        throw new Error("Failed to cache program");
+      }
+    }
+  }
 
   const context = await startAnchor(
     join(__dirname, "../.."),
-    [],
-    [
-      {
-        address: TOKEN_PROGRAM_2022_ID,
-        info: token22Info,
-      },
-      {
-        address: token22Executable,
-        info: token22ExecutableInfo,
-      },
-    ]
+    config.programs,
+    []
   );
 
   setGlobalContext(context);
