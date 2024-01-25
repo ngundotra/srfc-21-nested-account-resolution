@@ -6,6 +6,10 @@ pub mod state;
 use processor::*;
 use state::MetadataInfo;
 
+use ::spl_token_metadata_interface::{borsh::BorshSerialize, state::TokenMetadata};
+use anchor_lang::solana_program::program::set_return_data;
+use anchor_spl::token_interface;
+
 declare_id!("HfmoA2Urje3qNQ2f9jRuMHepz1aqhG4h6HLeiyntRCe6");
 
 #[derive(Accounts)]
@@ -70,36 +74,26 @@ pub mod universal_mint {
         processor::describe(ctx)
     }
 
-    /// TODO(ngundotra): use anchor 0.30 pre-build to make this work
-    /// requires using #[interface] to generate a namespaced discriminator
-    pub mod spl_token_metadata_interface {
-        use ::spl_token_metadata_interface::state::TokenMetadata;
-        use anchor_lang::solana_program::program::set_return_data;
+    #[ix(namespace = "spl_token_metadata_interface", name = "emitter")]
+    pub fn emitter<'info>(
+        ctx: Context<'_, '_, '_, 'info, Token2022Emitter<'info>>,
+        start: Option<u64>,
+        end: Option<u64>,
+    ) -> Result<()> {
+        let metadata = &ctx.accounts.metadata;
+        let token_metadata = TokenMetadata {
+            update_authority: Some(metadata.key()).try_into()?,
+            mint: metadata.key(),
+            uri: "".to_string(),
+            name: "".to_string(),
+            ..Default::default()
+        };
 
-        use super::*;
+        let metadata_bytes = token_metadata.try_to_vec()?;
 
-        pub fn emitter<'info>(
-            ctx: Context<'_, '_, '_, 'info, Token2022Emitter<'info>>,
-            start: Option<u64>,
-            end: Option<u64>,
-        ) -> Result<()> {
-            let metadata = &ctx.accounts.metadata;
-            let token_metadata = spl_token_metadata_interface::TokenMetadata {
-                update_authority: Some(metadata.key()).try_into()?,
-                mint: metadata.key(),
-                uri: "".to_string(),
-                name: "".to_string(),
-                ..Default::default()
-            };
-
-            let metadata_bytes = token_metadata.try_to_vec()?;
-
-            if let Some(range) = TokenMetadata::get_slice(&metadata_bytes, start, end) {
-                set_return_data(range);
-            }
-            Ok(())
+        if let Some(range) = TokenMetadata::get_slice(&metadata_bytes, start, end) {
+            set_return_data(range);
         }
+        Ok(())
     }
-
-    pub use universal_mint::spl_token_metadata_interface as hehe;
 }

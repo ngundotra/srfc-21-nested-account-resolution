@@ -8,7 +8,11 @@ description = "A Rust library that facilitates the request of additional account
 license = "Apache-2.0"
 
 [dependencies]
-anchor-lang = { version = "0.29.0", features = ["event-cpi"] }
+anchor-lang = { git = "https://www.github.com/ngundotra/anchor", branch = "namespaced-ixs", features = [
+    "event-cpi",
+    "interface-instructions",
+] }
+anchor-spl = { git = "https://www.github.com/coral-xyz/anchor" }
 bytemuck = "1.8.0"
 
 [lib]
