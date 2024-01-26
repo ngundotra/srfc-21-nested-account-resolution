@@ -4,19 +4,10 @@ pub mod processor;
 pub mod state;
 
 use processor::*;
-use state::MetadataInfo;
 
 use ::spl_token_metadata_interface::{borsh::BorshSerialize, state::TokenMetadata};
-use anchor_lang::solana_program::program::set_return_data;
-use anchor_spl::token_interface;
 
 declare_id!("HfmoA2Urje3qNQ2f9jRuMHepz1aqhG4h6HLeiyntRCe6");
-
-#[derive(Accounts)]
-pub struct Token2022Emitter<'info> {
-    pub metadata: Account<'info, MetadataInfo>,
-    // pub metadata_pointer: AccountInfo<'info>,
-}
 
 /// Universal program to mint, transfer, and close mints of
 /// SPL token, SPL token 2022, SPL token 2022 metadata
@@ -74,27 +65,51 @@ pub mod universal_mint {
         processor::describe(ctx)
     }
 
-    #[ix(namespace = "spl_token_metadata_interface")]
-    pub fn emitter<'info>(
+    #[ix(
+        namespace = "spl_token_metadata_interface",
+        name = "update_the_authority"
+    )]
+    pub fn t22_update_authority<'info>(
+        ctx: Context<'_, '_, '_, 'info, Token2022UpdateAuthority<'info>>,
+        new_authority: Option<Pubkey>,
+    ) -> Result<()> {
+        processor::t22_update_authority(ctx, new_authority)
+    }
+
+    #[ix(namespace = "spl_token_metadata_interface", name = "emitter")]
+    pub fn t22_emitter<'info>(
         ctx: Context<'_, '_, '_, 'info, Token2022Emitter<'info>>,
         start: Option<u64>,
         end: Option<u64>,
     ) -> Result<()> {
-        let metadata = &ctx.accounts.metadata;
-        let token_metadata = TokenMetadata {
-            update_authority: Some(metadata.update_authority).try_into()?,
-            mint: metadata.mint,
-            uri: "a".to_string(),
-            name: "b".to_string(),
-            symbol: "c".to_string(),
-            additional_metadata: vec![],
-        };
+        processor::t22_emitter(ctx, start, end)
+    }
 
-        let metadata_bytes = token_metadata.try_to_vec()?;
+    #[ix(namespace = "spl_token_metadata_interface", name = "remove_key_ix")]
+    pub fn t22_remove_key<'info>(
+        ctx: Context<'_, '_, '_, 'info, Token2022RemoveKey<'info>>,
+        idempotent: bool,
+        key: String,
+    ) -> Result<()> {
+        processor::t22_remove_key(ctx, idempotent, key)
+    }
 
-        if let Some(range) = TokenMetadata::get_slice(&metadata_bytes, start, end) {
-            set_return_data(range);
-        }
-        Ok(())
+    #[ix(namespace = "spl_token_metadata_interface", name = "updating_field")]
+    pub fn t22_update_field<'info>(
+        ctx: Context<'_, '_, '_, 'info, Token2022UpdateField<'info>>,
+        field: Field,
+        value: String,
+    ) -> Result<()> {
+        processor::t22_update_field(ctx, field, value)
+    }
+
+    #[ix(
+        namespace = "spl_token_metadata_interface",
+        name = "initialize_account"
+    )]
+    pub fn t22_initialize<'info>(
+        ctx: Context<'_, '_, '_, 'info, Token2022Initialize<'info>>,
+    ) -> Result<()> {
+        processor::t22_initialize(ctx)
     }
 }

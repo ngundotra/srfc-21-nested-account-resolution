@@ -12,3 +12,6 @@ pub use transfer_token::*;
 
 mod describe;
 pub use describe::*;
+
+mod spl_token_metadata;
+pub use spl_token_metadata::*;
