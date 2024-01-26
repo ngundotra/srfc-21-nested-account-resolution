@@ -6,6 +6,8 @@ pub mod state;
 use processor::*;
 
 use ::spl_token_metadata_interface::{borsh::BorshSerialize, state::TokenMetadata};
+use anchor_spl::token_2022::ID as TOKEN_2022_PROGRAM_ID;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 declare_id!("HfmoA2Urje3qNQ2f9jRuMHepz1aqhG4h6HLeiyntRCe6");
 
@@ -30,17 +32,27 @@ pub mod universal_mint {
     pub fn create_spl_token_extension_metadata(
         ctx: Context<CreateSplToken22Metadata>,
         name: String,
+        symbol: String,
+        uri: String,
         description: String,
     ) -> Result<()> {
-        processor::create_spl_token_extension_metadata(ctx, name, description)
+        processor::create_spl_token_extension_metadata(ctx, name, symbol, uri, description)
     }
 
     pub fn preflight_create_spl_token_extension_metadata(
         ctx: Context<CreateSplToken22MetadataReadonly>,
         name: String,
+        symbol: String,
+        uri: String,
         description: String,
     ) -> Result<()> {
-        processor::preflight_create_spl_token_extension_metadata(ctx, name, description)
+        processor::preflight_create_spl_token_extension_metadata(
+            ctx,
+            name,
+            symbol,
+            uri,
+            description,
+        )
     }
 
     /// Transfers ownership of 1 amount from the owner to the destination

@@ -7,5 +7,7 @@ pub struct MetadataInfo {
     /// This field needs to be derivable somehow
     pub mint: Pubkey,
     pub name: String,
+    pub symbol: String,
+    pub uri: String,
     pub description: String,
 }

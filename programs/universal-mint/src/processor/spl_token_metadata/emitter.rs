@@ -1,7 +1,7 @@
 use anchor_lang::{prelude::*, solana_program::program::set_return_data};
 use spl_token_metadata_interface::{borsh::BorshSerialize, state::TokenMetadata};
 
-use crate::state::MetadataInfo;
+use crate::state::{get_program_authority, MetadataInfo};
 
 #[derive(Accounts)]
 pub struct Token2022Emitter<'info> {
@@ -15,11 +15,11 @@ pub fn t22_emitter<'info>(
 ) -> Result<()> {
     let metadata = &ctx.accounts.metadata;
     let token_metadata = TokenMetadata {
-        update_authority: Some(metadata.update_authority).try_into()?,
+        update_authority: Some(get_program_authority().0).try_into()?,
         mint: metadata.mint,
-        uri: "a".to_string(),
-        name: "b".to_string(),
-        symbol: "c".to_string(),
+        name: metadata.name.to_string(),
+        symbol: metadata.symbol.to_string(),
+        uri: metadata.uri.to_string(),
         additional_metadata: vec![],
     };
 

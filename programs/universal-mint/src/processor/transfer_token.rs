@@ -1,8 +1,10 @@
 use additional_accounts_request::AdditionalAccounts;
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, Discriminator};
 
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_spl::associated_token::{AssociatedToken, Create};
+use anchor_spl::token_interface::spl_token_2022::extension::metadata_pointer;
+use anchor_spl::token_interface::{FreezeAccount, ThawAccount};
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token_2022::spl_token_2022::extension::StateWithExtensions,
@@ -11,6 +13,8 @@ use anchor_spl::{
     token_interface::TransferChecked,
 };
 use bytemuck::bytes_of;
+
+use crate::state::{get_program_authority, MetadataInfo};
 
 #[derive(Accounts)]
 pub struct TransferToken<'info> {
@@ -63,6 +67,8 @@ pub fn preflight_transfer_token_2022<'info>(
 
     let dest_ata =
         get_associated_token_address_with_program_id(destination.key, asset.key, &Token2022::id());
+
+    let program_authority = get_program_authority().0;
     let to_check = [
         // owner's ata
         (
@@ -71,6 +77,8 @@ pub fn preflight_transfer_token_2022<'info>(
         ),
         // destination's ata
         (dest_ata, true),
+        // program authority
+        (program_authority, false),
         // token program
         (Token2022::id(), false),
     ];
@@ -117,6 +125,17 @@ pub fn preflight_transfer_token_2022<'info>(
         requested_accounts.add_account(&System::id(), false)?;
         requested_accounts.set_has_more(false);
     }
+
+    let metadata_pointer = Pubkey::find_program_address(
+        &[
+            &asset.key.to_bytes(),
+            "token22".as_bytes(),
+            &"metadata_pointer".as_bytes(),
+        ],
+        &crate::id(),
+    )
+    .0;
+    requested_accounts.add_account(&metadata_pointer, true)?;
 
     set_return_data(bytes_of(&requested_accounts));
     Ok(())
@@ -197,6 +216,17 @@ fn transfer_token_2022<'info>(
         );
     }
 
+    let program_authority = next_account_info(&mut remaining_accounts)?;
+    let (expected_program_authority, program_authority_bump) = get_program_authority();
+    if program_authority.key() != expected_program_authority {
+        msg!(
+            "Invalid program authority. Expected {}, received: {}",
+            expected_program_authority,
+            program_authority.key()
+        );
+        return Err(ProgramError::InvalidAccountData.into());
+    }
+
     let token_program = next_account_info(&mut remaining_accounts)?;
     if token_program.key() != Token2022::id() {
         msg!(
@@ -224,6 +254,32 @@ fn transfer_token_2022<'info>(
         ))?;
     }
 
+    // Update metadata account just to fuck with it
+    let metadata_pointer_ai = next_account_info(&mut remaining_accounts)?;
+    let mut bytes = metadata_pointer_ai.try_borrow_mut_data()?;
+    if bytes[0..8] != MetadataInfo::DISCRIMINATOR {
+        msg!("Incorrect discriminator. Expected Metadata account");
+        return Err(ProgramError::InvalidAccountData.into());
+    }
+    let mut metadata = MetadataInfo::try_from_slice(&bytes[8..])?;
+    metadata.name = "d".to_string();
+    metadata.symbol = "e".to_string();
+    metadata.uri = "f".to_string();
+    let metadata_bytes = metadata.try_to_vec()?;
+    bytes[8..].copy_from_slice(&metadata_bytes);
+
+    // Thaw source token so it can be transferred
+    anchor_spl::token_2022::thaw_account(CpiContext::new_with_signer(
+        token_program.clone(),
+        ThawAccount {
+            mint: asset.to_account_info(),
+            authority: program_authority.clone(),
+            account: source_ata_ai.clone(),
+        },
+        &[&["AUTHORITY".as_ref(), &[program_authority_bump]]],
+    ))?;
+
+    // Transfer token account
     anchor_spl::token_2022::transfer_checked(
         CpiContext::new(
             token_program.clone(),
@@ -237,5 +293,17 @@ fn transfer_token_2022<'info>(
         amount,
         decimals,
     )?;
+
+    // Freeze token so they cannot move it
+    anchor_spl::token_2022::freeze_account(CpiContext::new_with_signer(
+        token_program.clone(),
+        FreezeAccount {
+            mint: asset.to_account_info(),
+            authority: program_authority.clone(),
+            account: destination_ata_ai.clone(),
+        },
+        &[&["AUTHORITY".as_ref(), &[program_authority_bump]]],
+    ))?;
+
     Ok(())
 }
