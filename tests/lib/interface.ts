@@ -10,6 +10,7 @@ type CallOpts = {
   verbose?: boolean;
   txLogs?: boolean;
   signers?: anchor.web3.Keypair[];
+  ixNamespace?: string;
 };
 
 /**
@@ -178,7 +179,8 @@ export async function call(
     ix,
     ixName,
     opts?.verbose ?? false,
-    opts?.useLookupTable ?? false
+    opts?.useLookupTable ?? false,
+    opts?.ixNamespace
   );
   ix = _ix;
 

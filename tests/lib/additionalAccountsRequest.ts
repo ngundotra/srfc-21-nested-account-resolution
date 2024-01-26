@@ -205,8 +205,8 @@ async function pollForActiveLookupTable(
   }
 }
 
-export function hashIxName(ixName: string): Buffer {
-  return Buffer.from(sha256(`global:${ixName}`)).slice(0, 8);
+export function hashIxName(ixName: string, namespace?: string): Buffer {
+  return Buffer.from(sha256(`${namespace ?? "global"}:${ixName}`)).slice(0, 8);
 }
 
 /**
@@ -222,7 +222,8 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   instruction: anchor.web3.TransactionInstruction,
   methodName: string,
   verbose: boolean = false,
-  slut: boolean = false
+  slut: boolean = false,
+  namespace?: string
 ): Promise<{
   ix: anchor.web3.TransactionInstruction;
   lookupTable?: anchor.web3.PublicKey;
@@ -235,7 +236,7 @@ export async function additionalAccountsRequest<I extends anchor.Idl>(
   // Overwrite the discriminator
   let currentBuffer = Buffer.from(instruction.data);
 
-  let newIxDisc = hashIxName(`preflight_${methodName}`);
+  let newIxDisc = hashIxName(`preflight_${methodName}`, namespace);
   currentBuffer.set(newIxDisc, 0);
 
   let additionalAccounts: anchor.web3.AccountMeta[] = [];
