@@ -4,6 +4,8 @@ use anchor_lang::prelude::*;
 
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::solana_program::system_instruction;
+use anchor_spl::token_interface::spl_token_2022::instruction::freeze_account;
+use anchor_spl::token_interface::FreezeAccount;
 use anchor_spl::{
     associated_token::AssociatedToken, token_2022::mint_to,
     token_2022::spl_token_2022::extension::metadata_pointer, token_interface::Token2022,
@@ -16,7 +18,7 @@ use anchor_spl::{
 use bytemuck::bytes_of;
 
 #[derive(Accounts)]
-#[instruction(name: String, description: String)]
+#[instruction(name: String, symbol: String, uri: String, description: String)]
 pub struct CreateSplToken22Metadata<'info> {
     #[account(mut)]
     payer: Signer<'info>,
@@ -24,9 +26,12 @@ pub struct CreateSplToken22Metadata<'info> {
     mint: Signer<'info>,
     /// CHECK:
     #[account(mut)]
-    ata: UncheckedAccount<'info>,
+    ata: AccountInfo<'info>,
     /// CHECK:
-    #[account(init, space = 8 + 4 + name.len() + 4 + description.len(), payer=payer, seeds=[&mint.key.to_bytes(), "token22".as_bytes(), &"metadata_pointer".as_bytes()], bump)]
+    #[account(seeds = ["AUTHORITY".as_bytes()], bump)]
+    program_authority: AccountInfo<'info>,
+    /// CHECK:
+    #[account(init, space = 8 + 32 + 32 + 4 + name.len() + 4 + symbol.len() + 4 + uri.len() + 4 + description.len(), payer=payer, seeds=[&mint.key.to_bytes(), "token22".as_bytes(), &"metadata_pointer".as_bytes()], bump)]
     metadata_pointer: Account<'info, MetadataInfo>,
     token_program: Program<'info, Token2022>,
     associated_token_program: Program<'info, AssociatedToken>,
@@ -44,6 +49,8 @@ pub struct CreateSplToken22MetadataReadonly<'info> {
 pub fn preflight_create_spl_token_extension_metadata(
     ctx: Context<CreateSplToken22MetadataReadonly>,
     name: String,
+    symbol: String,
+    uri: String,
     description: String,
 ) -> Result<()> {
     let payer = &ctx.accounts.payer;
@@ -52,6 +59,8 @@ pub fn preflight_create_spl_token_extension_metadata(
     let mut accounts = AdditionalAccounts::new();
 
     let ata = get_associated_token_address_with_program_id(payer.key, mint.key, &Token2022::id());
+    let program_authority =
+        Pubkey::find_program_address(&[&"AUTHORITY".as_bytes()], &crate::id()).0;
     let metadata_pointer = Pubkey::find_program_address(
         &[
             &mint.key.to_bytes(),
@@ -68,6 +77,7 @@ pub fn preflight_create_spl_token_extension_metadata(
 
     let to_check = &[
         (&ata, true),
+        (&program_authority, false),
         (&metadata_pointer, true),
         (&token_program, false),
         (&associated_token_program, false),
@@ -106,25 +116,33 @@ pub fn preflight_create_spl_token_extension_metadata(
 pub fn create_spl_token_extension_metadata(
     ctx: Context<CreateSplToken22Metadata>,
     name: String,
+    symbol: String,
+    uri: String,
     description: String,
 ) -> Result<()> {
     let payer = &ctx.accounts.payer;
     let mint = &ctx.accounts.mint;
     let ata = &ctx.accounts.ata;
+    let program_authority = &ctx.accounts.program_authority;
     let associated_token_program = &ctx.accounts.associated_token_program;
     let token_program = &ctx.accounts.token_program;
     let system_program = &ctx.accounts.system_program;
 
     // Write to the metadata pointer
     let metadata_pointer = &mut ctx.accounts.metadata_pointer;
+    metadata_pointer.update_authority = payer.key();
+    metadata_pointer.mint = mint.key();
     metadata_pointer.name = name.clone();
+    metadata_pointer.symbol = symbol.clone();
+    metadata_pointer.uri = uri.clone();
     metadata_pointer.description = description.clone();
 
-    let size = ExtensionType::try_calculate_account_len::<
+    let extension_len = ExtensionType::try_calculate_account_len::<
         anchor_spl::token_2022::spl_token_2022::state::Mint,
     >(&[ExtensionType::MetadataPointer])?;
-    msg!("Found size: {}", size);
-    let extension_len: usize = 234;
+
+    // msg!("Found size: {}", size);
+    // let extension_len: usize = 234;
     anchor_lang::solana_program::program::invoke(
         &system_instruction::create_account(
             payer.key,
@@ -164,7 +182,7 @@ pub fn create_spl_token_extension_metadata(
         ),
         0,
         payer.key,
-        Some(payer.key),
+        Some(program_authority.key),
     )?;
 
     // create ATA for the user
@@ -196,6 +214,18 @@ pub fn create_spl_token_extension_metadata(
         ),
         1,
     )?;
+
+    // Freeze account
+    let program_auth_bump = ctx.bumps.program_authority;
+    anchor_spl::token_2022::freeze_account(CpiContext::new_with_signer(
+        token_program.to_account_info(),
+        FreezeAccount {
+            mint: mint.to_account_info(),
+            account: ata.to_account_info(),
+            authority: program_authority.to_account_info(),
+        },
+        &[&["AUTHORITY".as_bytes(), &[program_auth_bump]]],
+    ))?;
 
     Ok(())
 }

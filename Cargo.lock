@@ -6,7 +6,8 @@ version = 3
 name = "additional-accounts-request"
 version = "0.1.0"
 dependencies = [
- "anchor-lang",
+ "anchor-lang 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-spl 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "bytemuck",
 ]
 
@@ -82,10 +83,20 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-access-control"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5f619f1d04f53621925ba8a2e633ba5a6081f2ae14758cbb67f38fd823e0a3e"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-attribute-access-control"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -94,10 +105,21 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-account"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7f2a3e1df4685f18d12a943a9f2a7456305401af21a07c9fe076ef9ecd6e400"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "bs58 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-attribute-account"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "bs58 0.5.0",
  "proc-macro2",
  "quote",
@@ -107,10 +129,19 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-constant"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9423945cb55627f0b30903288e78baf6f62c6c8ab28fb344b6b25f1ffee3dca7"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-attribute-constant"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "quote",
  "syn 1.0.109",
 ]
@@ -118,10 +149,19 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-error"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ed12720033cc3c3bf3cfa293349c2275cd5ab99936e33dd4bf283aaad3e241"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-attribute-error"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "quote",
  "syn 1.0.109",
 ]
@@ -129,10 +169,20 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-event"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eef4dc0371eba2d8c8b54794b0b0eb786a234a559b77593d6f80825b6d2c77a2"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-attribute-event"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -141,10 +191,19 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-program"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b18c4f191331e078d4a6a080954d1576241c29c56638783322a18d308ab27e4f"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-attribute-program"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "quote",
  "syn 1.0.109",
 ]
@@ -152,10 +211,19 @@ dependencies = [
 [[package]]
 name = "anchor-derive-accounts"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5de10d6e9620d3bcea56c56151cad83c5992f50d5960b3a9bebc4a50390ddc3c"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-derive-accounts"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "quote",
  "syn 1.0.109",
 ]
@@ -163,11 +231,22 @@ dependencies = [
 [[package]]
 name = "anchor-derive-serde"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4e2e5be518ec6053d90a2a7f26843dbee607583c779e6c8395951b9739bdfbe"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-syn",
- "borsh-derive-internal 0.10.3",
+ "anchor-syn 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "borsh-derive-internal 0.9.3",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-derive-serde"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-syn 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "borsh-derive-internal 0.9.3",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -176,8 +255,17 @@ dependencies = [
 [[package]]
 name = "anchor-derive-space"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ecc31d19fa54840e74b7a979d44bcea49d70459de846088a1d71e87ba53c419"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "anchor-derive-space"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -187,22 +275,47 @@ dependencies = [
 [[package]]
 name = "anchor-lang"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35da4785497388af0553586d55ebdc08054a8b1724720ef2749d313494f2b8ad"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-attribute-access-control",
- "anchor-attribute-account",
- "anchor-attribute-constant",
- "anchor-attribute-error",
- "anchor-attribute-event",
- "anchor-attribute-program",
- "anchor-derive-accounts",
- "anchor-derive-serde",
- "anchor-derive-space",
+ "ahash 0.8.6",
+ "anchor-attribute-access-control 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-attribute-account 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-attribute-constant 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-attribute-error 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-attribute-event 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-attribute-program 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-derive-accounts 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-derive-serde 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-derive-space 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
  "arrayref",
- "base64 0.13.1",
+ "base64 0.21.5",
  "bincode",
- "borsh 0.10.3",
+ "borsh 0.9.3",
+ "bytemuck",
+ "getrandom 0.2.10",
+ "solana-program",
+ "thiserror",
+]
+
+[[package]]
+name = "anchor-lang"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "ahash 0.8.6",
+ "anchor-attribute-access-control 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-attribute-account 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-attribute-constant 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-attribute-error 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-attribute-event 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-attribute-program 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-derive-accounts 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-derive-serde 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "anchor-derive-space 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
+ "arrayref",
+ "base64 0.21.5",
+ "bincode",
+ "borsh 0.9.3",
  "bytemuck",
  "getrandom 0.2.10",
  "solana-program",
@@ -212,10 +325,21 @@ dependencies = [
 [[package]]
 name = "anchor-spl"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c4fd6e43b2ca6220d2ef1641539e678bfc31b6cc393cf892b373b5997b6a39a"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
 dependencies = [
- "anchor-lang",
+ "anchor-lang 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "solana-program",
+ "spl-associated-token-account",
+ "spl-token",
+ "spl-token-2022 0.9.0",
+]
+
+[[package]]
+name = "anchor-spl"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
+dependencies = [
+ "anchor-lang 0.29.0 (git+https://www.github.com/coral-xyz/anchor)",
  "solana-program",
  "spl-associated-token-account",
  "spl-token",
@@ -225,8 +349,24 @@ dependencies = [
 [[package]]
 name = "anchor-syn"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9101b84702fed2ea57bd22992f75065da5648017135b844283a2f6d74f27825"
+source = "git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs#8abf4e4bd4dc3525f25d837c86741e63699028e8"
+dependencies = [
+ "anyhow",
+ "bs58 0.5.0",
+ "heck",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "syn 1.0.109",
+ "thiserror",
+]
+
+[[package]]
+name = "anchor-syn"
+version = "0.29.0"
+source = "git+https://www.github.com/coral-xyz/anchor#bcd7e1719e5b4958792d2165bfaf7020b75530b0"
 dependencies = [
  "anyhow",
  "bs58 0.5.0",
@@ -418,12 +558,6 @@ name = "base64"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
-
-[[package]]
-name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
@@ -655,7 +789,7 @@ name = "callee"
 version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
- "anchor-lang",
+ "anchor-lang 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
  "bytemuck",
 ]
 
@@ -664,7 +798,7 @@ name = "caller"
 version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
- "anchor-lang",
+ "anchor-lang 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
  "bytemuck",
  "callee",
 ]
@@ -674,7 +808,7 @@ name = "caller-wrapper"
 version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
- "anchor-lang",
+ "anchor-lang 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
  "bytemuck",
  "caller",
 ]
@@ -1241,6 +1375,17 @@ name = "libc"
 version = "0.2.150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89d92a4743f9a61002fae18374ed11e7973f530cb3a3255fb354818118b2203c"
+
+[[package]]
+name = "libreplex_manager"
+version = "0.1.0"
+dependencies = [
+ "additional-accounts-request",
+ "anchor-lang 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-spl 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "bytemuck",
+ "solana-program",
+]
 
 [[package]]
 name = "libsecp256k1"
@@ -2618,8 +2763,8 @@ name = "universal-mint"
 version = "0.1.0"
 dependencies = [
  "additional-accounts-request",
- "anchor-lang",
- "anchor-spl",
+ "anchor-lang 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
+ "anchor-spl 0.29.0 (git+https://www.github.com/ngundotra/anchor?branch=namespaced-ixs)",
  "bytemuck",
  "serde",
  "serde_json",

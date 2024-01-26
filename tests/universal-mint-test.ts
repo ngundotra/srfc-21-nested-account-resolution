@@ -3,15 +3,49 @@ import { Program } from "@coral-xyz/anchor";
 import { assert } from "chai";
 import { PRE_INSTRUCTIONS } from "./lib/sendTransaction";
 import { call } from "./lib/interface";
-import { setupBankrun } from "./lib/utils";
+import { getLatestBlockhash, setupBankrun } from "./lib/utils";
 import { UniversalMint } from "../target/types/universal_mint";
 import { getAccount } from "@solana/spl-token";
 import {
   ASSOCIATED_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@coral-xyz/anchor/dist/cjs/utils/token";
+import {
+  createEmitInstruction,
+  TokenMetadata,
+  unpack as deserializeTokenMetadata,
+} from "@solana/spl-token-metadata";
 
 import { TOKEN_PROGRAM_2022_ID } from "./lib/utils";
+import { GLOBAL_CONTEXT } from "./lib/additionalAccountsRequest";
+
+async function getTokenMetadata(
+  metadataPointer: anchor.web3.PublicKey,
+  programId: anchor.web3.PublicKey,
+  payer: anchor.web3.PublicKey,
+  connection: anchor.web3.Connection
+): Promise<TokenMetadata> {
+  const ixs = [
+    createEmitInstruction({
+      metadata: metadataPointer,
+      programId: programId,
+    }),
+  ];
+  const message = anchor.web3.MessageV0.compile({
+    payerKey: payer,
+    recentBlockhash: await getLatestBlockhash(connection),
+    instructions: ixs,
+  });
+
+  const res = await GLOBAL_CONTEXT.banksClient.simulateTransaction(
+    new anchor.web3.VersionedTransaction(message)
+  );
+
+  const tm = deserializeTokenMetadata(
+    Buffer.from(Array.from(res.meta.returnData.data))
+  );
+  return tm;
+}
 
 describe("universal-mint-tests", () => {
   let provider: anchor.Provider;
@@ -37,34 +71,10 @@ describe("universal-mint-tests", () => {
         destination = anchor.web3.Keypair.generate().publicKey;
       });
 
-      it(`(tokenkeg) initialize mint`, async () => {
-        const txId = await program.methods
-          .createSplToken(6)
-          .accounts({
-            payer,
-            mint,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .preInstructions(PRE_INSTRUCTIONS)
-          .signers([mintKp])
-          .rpc({ skipPreflight: false, commitment: "confirmed" });
-      });
-
-      it(`(token22) initialize mint`, async () => {
-        const txId = await program.methods
-          .createSplTokenExtension(6)
-          .accounts({
-            payer,
-            mint,
-            tokenProgram: TOKEN_PROGRAM_2022_ID,
-          })
-          .preInstructions(PRE_INSTRUCTIONS)
-          .signers([mintKp])
-          .rpc({ skipPreflight: false, commitment: "confirmed" });
-      });
-
-      it.skip(`(token22) initialize mint + metadata`, async () => {
-        const name = "name";
+      it(`(token22) initialize mint + metadata`, async () => {
+        const name = "a";
+        const symbol = "b";
+        const uri = "c";
         const description = "description";
 
         let ata = anchor.web3.PublicKey.findProgramAddressSync(
@@ -72,7 +82,7 @@ describe("universal-mint-tests", () => {
           ASSOCIATED_PROGRAM_ID
         )[0];
 
-        const txId = await call(
+        let computeUnits = await call(
           provider.connection,
           program.programId,
           "create_spl_token_extension_metadata",
@@ -83,6 +93,10 @@ describe("universal-mint-tests", () => {
           Buffer.concat([
             Buffer.from(new anchor.BN(name.length).toArray("le", 4)),
             Uint8Array.from(Buffer.from(name, "utf-8")),
+            Buffer.from(new anchor.BN(symbol.length).toArray("le", 4)),
+            Uint8Array.from(Buffer.from(symbol, "utf-8")),
+            Buffer.from(new anchor.BN(uri.length).toArray("le", 4)),
+            Uint8Array.from(Buffer.from(uri, "utf-8")),
             Buffer.from(new anchor.BN(description.length).toArray("le", 4)),
             Uint8Array.from(Buffer.from(description, "utf-8")),
           ]),
@@ -111,43 +125,33 @@ describe("universal-mint-tests", () => {
         );
         assert(accountInfo.name === name);
         assert(accountInfo.description === description);
-      });
-      it(`(token22) transfer token metadata thing`, async () => {
-        const name = "name";
-        const description = "description";
 
-        let computeUnits = await call(
-          provider.connection,
-          program.programId,
-          "create_spl_token_extension_metadata",
-          [
-            { pubkey: payer, isSigner: true, isWritable: true },
-            { pubkey: mint, isSigner: true, isWritable: true },
-          ],
-          Buffer.concat([
-            Buffer.from(new anchor.BN(name.length).toArray("le", 4)),
-            Uint8Array.from(Buffer.from(name, "utf-8")),
-            Buffer.from(new anchor.BN(description.length).toArray("le", 4)),
-            Uint8Array.from(Buffer.from(description, "utf-8")),
-          ]),
-          { signers: [mintKp], verbose: true }
-        );
-
-        let ata = anchor.web3.PublicKey.findProgramAddressSync(
-          [payer.toBuffer(), TOKEN_PROGRAM_2022_ID.toBuffer(), mint.toBuffer()],
-          ASSOCIATED_PROGRAM_ID
+        const programAuthority = anchor.web3.PublicKey.findProgramAddressSync(
+          [Buffer.from("AUTHORITY")],
+          program.programId
         )[0];
 
-        let tokenInfo = await getAccount(
-          provider.connection,
-          ata,
-          "confirmed",
-          TOKEN_PROGRAM_2022_ID
+        let tm = await getTokenMetadata(
+          metadataPointer,
+          program.programId,
+          payer,
+          provider.connection
         );
-        console.log({
-          tokenInfo,
-        });
+        assert.equal(tm.name, name);
+        assert.equal(tm.symbol, symbol);
+        assert.equal(tm.uri, uri);
+        assert.equal(
+          tm.updateAuthority.toBase58(),
+          programAuthority.toBase58(),
+          "Expected update authority to be payer"
+        );
+        assert.equal(
+          tm.mint.toBase58(),
+          mint.toBase58(),
+          "Expected mint to be correct"
+        );
 
+        // Transfer token
         computeUnits = await call(
           provider.connection,
           program.programId,
@@ -160,15 +164,17 @@ describe("universal-mint-tests", () => {
           Buffer.concat([Buffer.from(new anchor.BN(1).toArray("le", 8))])
         );
 
-        // const txId = await program.methods
-        //   .describe()
-        //   .accounts({ asset: mint })
-        //   .rpc({ skipPreflight: true, commitment: "confirmed" });
-
-        // const txId = await program
-        //   .methods()
-        //   .accounts({ asset: mint })
-        //   .rpc({ skipPreflight: true, commitment: "confirmed" });
+        // Check that name was changed
+        tm = await getTokenMetadata(
+          metadataPointer,
+          program.programId,
+          payer,
+          provider.connection
+        );
+        assert.equal(tm.name, "d");
+        assert.equal(tm.symbol, "e");
+        assert.equal(tm.uri, "f");
+        //
       });
     });
   });

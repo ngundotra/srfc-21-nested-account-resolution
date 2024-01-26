@@ -8,9 +8,8 @@ skip-lint = false
 callee = "8hKjTVHaCE4U2zMYVx5eu5P9MTCU2imhvZZU31jDnYNA"
 caller = "8dHQbAAjuxANBSjsEdFMF4d5wMfTS3Ro2DTLaawBLvJ3"
 caller_wrapper = "BoU7xvB9ZUrSxpRsYaeKbjj5Xv7MdR2YiSRgMgwoij6k"
+libreplex_manager = "8BMnVbSD8L9gbe5Qw6jSKXPjmYM2c7wa4h9rGLPXBaJw"
 universal_mint = "HfmoA2Urje3qNQ2f9jRuMHepz1aqhG4h6HLeiyntRCe6"
-# hydra_generic = "CJAFX8XgZnTNPbVRUFBYda2b43KzzL7cyVVWFJD9rBby"
-# lut_manager = "tY637opSt6wHYGQHMkj322aWLT8xxfWkNMidEBeRPqj"
 
 [registry]
 url = "https://api.apr.dev"

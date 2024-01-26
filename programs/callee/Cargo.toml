@@ -19,6 +19,6 @@ default = []
 overflow-checks = true
 
 [dependencies]
-anchor-lang = "0.29.0"
-additional-accounts-request = { version = "0.1.0", path = "../../additional-accounts-request"}
+anchor-lang = { git = "https://www.github.com/ngundotra/anchor", branch = "namespaced-ixs" }
+additional-accounts-request = { version = "0.1.0", path = "../../additional-accounts-request" }
 bytemuck = "1.8.0"
