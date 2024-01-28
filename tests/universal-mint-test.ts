@@ -47,6 +47,8 @@ async function getTokenMetadata(
   return tm;
 }
 
+const MAX_URI_LEN = 98;
+
 describe("universal-mint-tests", () => {
   let provider: anchor.Provider;
   let program: Program<UniversalMint>;
@@ -72,10 +74,14 @@ describe("universal-mint-tests", () => {
       });
 
       it(`(token22) initialize mint + metadata`, async () => {
-        const name = "a";
-        const symbol = "b";
-        const uri = "c";
-        const description = "description";
+        const name = (num: number) => `#${num.toString().padStart(4, " ")}`;
+        const symbol = "UNDEAD";
+        const uri = (num: number) =>
+          `https://bafybeiffh25vb32ns6zspqjxcpkvqzvgmdn6xrzwnnt7eghfqkwdiwpeaq.ipfs.nftstorage.link/${num}.json`.padEnd(
+            MAX_URI_LEN,
+            "#"
+          );
+        const description = "This NFT changes its URI on every transfer";
 
         let ata = anchor.web3.PublicKey.findProgramAddressSync(
           [payer.toBuffer(), TOKEN_PROGRAM_2022_ID.toBuffer(), mint.toBuffer()],
@@ -85,21 +91,12 @@ describe("universal-mint-tests", () => {
         let computeUnits = await call(
           provider.connection,
           program.programId,
-          "create_spl_token_extension_metadata",
+          "mint_new_nft",
           [
             { pubkey: payer, isSigner: true, isWritable: true },
             { pubkey: mint, isSigner: true, isWritable: true },
           ],
-          Buffer.concat([
-            Buffer.from(new anchor.BN(name.length).toArray("le", 4)),
-            Uint8Array.from(Buffer.from(name, "utf-8")),
-            Buffer.from(new anchor.BN(symbol.length).toArray("le", 4)),
-            Uint8Array.from(Buffer.from(symbol, "utf-8")),
-            Buffer.from(new anchor.BN(uri.length).toArray("le", 4)),
-            Uint8Array.from(Buffer.from(uri, "utf-8")),
-            Buffer.from(new anchor.BN(description.length).toArray("le", 4)),
-            Uint8Array.from(Buffer.from(description, "utf-8")),
-          ]),
+          Buffer.from([]),
           { signers: [mintKp], verbose: true }
         );
 
@@ -123,7 +120,8 @@ describe("universal-mint-tests", () => {
         const accountInfo = await program.account.metadataInfo.fetch(
           metadataPointer
         );
-        assert(accountInfo.name === name);
+        console.log("account info", accountInfo, name(0));
+        assert(accountInfo.name === name(0));
         assert(accountInfo.description === description);
 
         const programAuthority = anchor.web3.PublicKey.findProgramAddressSync(
@@ -137,9 +135,13 @@ describe("universal-mint-tests", () => {
           payer,
           provider.connection
         );
-        assert.equal(tm.name, name);
+        assert.equal(tm.name, name(0));
         assert.equal(tm.symbol, symbol);
-        assert.equal(tm.uri, uri);
+        assert.equal(tm.uri, uri(0));
+        assert.equal(
+          new Map(tm.additionalMetadata).get("Description"),
+          description
+        );
         assert.equal(
           tm.updateAuthority.toBase58(),
           programAuthority.toBase58(),
@@ -171,10 +173,10 @@ describe("universal-mint-tests", () => {
           payer,
           provider.connection
         );
-        assert.equal(tm.name, "d");
-        assert.equal(tm.symbol, "e");
-        assert.equal(tm.uri, "f");
-        //
+        console.log("Final metadata", tm);
+        assert.equal(tm.name, name(1));
+        assert.equal(tm.symbol, symbol);
+        assert.equal(tm.uri, uri(1));
       });
     });
   });

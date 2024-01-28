@@ -11,51 +11,33 @@ use anchor_spl::token_interface::{Mint, TokenAccount};
 
 declare_id!("HfmoA2Urje3qNQ2f9jRuMHepz1aqhG4h6HLeiyntRCe6");
 
-/// Universal program to mint, transfer, and close mints of
-/// SPL token, SPL token 2022, SPL token 2022 metadata
+/// Universal Mint program: allows you to mint a Token22 mint with metadata
+/// that changes when you transfer it.
 #[program]
 pub mod universal_mint {
     use super::*;
 
-    /// Testing only
-    pub fn create_spl_token(ctx: Context<CreateSplToken>, decimals: u8) -> Result<()> {
-        processor::create_spl_token(ctx, decimals)
+    // /// Testing only
+    // pub fn create_spl_token(ctx: Context<CreateSplToken>, decimals: u8) -> Result<()> {
+    //     processor::create_spl_token(ctx, decimals)
+    // }
+
+    // /// Testing only
+    // pub fn create_spl_token_extension(ctx: Context<CreateSplToken22>, decimals: u8) -> Result<()> {
+    //     processor::create_spl_token_extension(ctx, decimals)
+    // }
+
+    /// Mint yourself a T22 NFT
+    pub fn mint_new_nft(ctx: Context<CreateSplToken22Metadata>) -> Result<()> {
+        msg!("Here...");
+        processor::create_spl_token_extension_metadata(ctx)
     }
 
-    /// Testing only
-    pub fn create_spl_token_extension(ctx: Context<CreateSplToken22>, decimals: u8) -> Result<()> {
-        processor::create_spl_token_extension(ctx, decimals)
+    pub fn preflight_mint_new_nft(ctx: Context<CreateSplToken22MetadataReadonly>) -> Result<()> {
+        processor::preflight_create_spl_token_extension_metadata(ctx)
     }
 
-    /// Create an SPL Token Extension mint with metadata
-    /// and mint your self the only in circulation
-    pub fn create_spl_token_extension_metadata(
-        ctx: Context<CreateSplToken22Metadata>,
-        name: String,
-        symbol: String,
-        uri: String,
-        description: String,
-    ) -> Result<()> {
-        processor::create_spl_token_extension_metadata(ctx, name, symbol, uri, description)
-    }
-
-    pub fn preflight_create_spl_token_extension_metadata(
-        ctx: Context<CreateSplToken22MetadataReadonly>,
-        name: String,
-        symbol: String,
-        uri: String,
-        description: String,
-    ) -> Result<()> {
-        processor::preflight_create_spl_token_extension_metadata(
-            ctx,
-            name,
-            symbol,
-            uri,
-            description,
-        )
-    }
-
-    /// Transfers ownership of 1 amount from the owner to the destination
+    /// Transfers T22 NFT
     pub fn transfer_token<'info>(
         ctx: Context<'_, '_, '_, 'info, TransferToken<'info>>,
         amount: u64,
@@ -106,14 +88,14 @@ pub mod universal_mint {
         processor::t22_remove_key(ctx, idempotent, key)
     }
 
-    #[ix(namespace = "spl_token_metadata_interface", name = "updating_field")]
-    pub fn t22_update_field<'info>(
-        ctx: Context<'_, '_, '_, 'info, Token2022UpdateField<'info>>,
-        field: Field,
-        value: String,
-    ) -> Result<()> {
-        processor::t22_update_field(ctx, field, value)
-    }
+    // #[ix(namespace = "spl_token_metadata_interface", name = "updating_field")]
+    // pub fn t22_update_field<'info>(
+    //     ctx: Context<'_, '_, '_, 'info, Token2022UpdateField<'info>>,
+    //     field: Field,
+    //     value: String,
+    // ) -> Result<()> {
+    //     processor::t22_update_field(ctx, field, value)
+    // }
 
     #[ix(
         namespace = "spl_token_metadata_interface",

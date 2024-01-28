@@ -20,7 +20,7 @@ pub fn t22_emitter<'info>(
         name: metadata.name.to_string(),
         symbol: metadata.symbol.to_string(),
         uri: metadata.uri.to_string(),
-        additional_metadata: vec![],
+        additional_metadata: vec![("Description".to_string(), metadata.description.to_string())],
     };
 
     let metadata_bytes = token_metadata.try_to_vec()?;

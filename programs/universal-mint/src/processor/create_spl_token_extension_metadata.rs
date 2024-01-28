@@ -1,10 +1,9 @@
-use crate::state::MetadataInfo;
+use crate::state::{MetadataInfo, MAX_URI_LEN};
 use additional_accounts_request::AdditionalAccounts;
 use anchor_lang::prelude::*;
 
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::solana_program::system_instruction;
-use anchor_spl::token_interface::spl_token_2022::instruction::freeze_account;
 use anchor_spl::token_interface::FreezeAccount;
 use anchor_spl::{
     associated_token::AssociatedToken, token_2022::mint_to,
@@ -18,7 +17,6 @@ use anchor_spl::{
 use bytemuck::bytes_of;
 
 #[derive(Accounts)]
-#[instruction(name: String, symbol: String, uri: String, description: String)]
 pub struct CreateSplToken22Metadata<'info> {
     #[account(mut)]
     payer: Signer<'info>,
@@ -31,7 +29,18 @@ pub struct CreateSplToken22Metadata<'info> {
     #[account(seeds = ["AUTHORITY".as_bytes()], bump)]
     program_authority: AccountInfo<'info>,
     /// CHECK:
-    #[account(init, space = 8 + 32 + 32 + 4 + name.len() + 4 + symbol.len() + 4 + uri.len() + 4 + description.len(), payer=payer, seeds=[&mint.key.to_bytes(), "token22".as_bytes(), &"metadata_pointer".as_bytes()], bump)]
+    #[account(init, space = 
+        8 + 32 + 32 
+        // Name len
+        + 4 + 5 
+        // Symbol len
+        + 4 + 6
+        // URI len
+        + 4 + MAX_URI_LEN
+        // Description len
+        + 4 + 42
+        // Num transfers
+        + 4, payer=payer, seeds=[&mint.key.to_bytes(), "token22".as_bytes(), &"metadata_pointer".as_bytes()], bump)]
     metadata_pointer: Account<'info, MetadataInfo>,
     token_program: Program<'info, Token2022>,
     associated_token_program: Program<'info, AssociatedToken>,
@@ -48,10 +57,6 @@ pub struct CreateSplToken22MetadataReadonly<'info> {
 
 pub fn preflight_create_spl_token_extension_metadata(
     ctx: Context<CreateSplToken22MetadataReadonly>,
-    name: String,
-    symbol: String,
-    uri: String,
-    description: String,
 ) -> Result<()> {
     let payer = &ctx.accounts.payer;
     let mint = &ctx.accounts.mint;
@@ -113,13 +118,7 @@ pub fn preflight_create_spl_token_extension_metadata(
     Ok(())
 }
 
-pub fn create_spl_token_extension_metadata(
-    ctx: Context<CreateSplToken22Metadata>,
-    name: String,
-    symbol: String,
-    uri: String,
-    description: String,
-) -> Result<()> {
+pub fn create_spl_token_extension_metadata(ctx: Context<CreateSplToken22Metadata>) -> Result<()> {
     let payer = &ctx.accounts.payer;
     let mint = &ctx.accounts.mint;
     let ata = &ctx.accounts.ata;
@@ -130,12 +129,7 @@ pub fn create_spl_token_extension_metadata(
 
     // Write to the metadata pointer
     let metadata_pointer = &mut ctx.accounts.metadata_pointer;
-    metadata_pointer.update_authority = payer.key();
-    metadata_pointer.mint = mint.key();
-    metadata_pointer.name = name.clone();
-    metadata_pointer.symbol = symbol.clone();
-    metadata_pointer.uri = uri.clone();
-    metadata_pointer.description = description.clone();
+    metadata_pointer.init(mint.key, program_authority.key);
 
     let extension_len = ExtensionType::try_calculate_account_len::<
         anchor_spl::token_2022::spl_token_2022::state::Mint,

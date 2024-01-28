@@ -22,7 +22,7 @@ pub struct TransferToken<'info> {
     pub owner: Signer<'info>,
     /// CHECK:
     #[account(mut)]
-    pub asset: AccountInfo<'info>,
+    pub mint: AccountInfo<'info>,
     /// CHECK:
     pub destination: AccountInfo<'info>,
 }
@@ -32,7 +32,7 @@ pub struct TransferTokenReadonly<'info> {
     /// CHECK:
     pub owner: AccountInfo<'info>,
     /// CHECK:
-    pub asset: AccountInfo<'info>,
+    pub mint: AccountInfo<'info>,
     /// CHECK:
     pub destination: AccountInfo<'info>,
 }
@@ -43,11 +43,10 @@ pub fn preflight_transfer_token<'info>(
 ) -> Result<()> {
     let owner = &ctx.accounts.owner;
     let destination = &ctx.accounts.destination;
-    let asset = &ctx.accounts.asset;
+    let asset = &ctx.accounts.mint;
 
     let remaining_accounts = ctx.remaining_accounts.to_vec();
 
-    msg!("Humbug!");
     if *asset.owner == Token2022::id() {
         msg!("Preflighting transfer token22");
         preflight_transfer_token_2022(&owner, &asset, &destination, &mut remaining_accounts.iter())
@@ -147,7 +146,7 @@ pub fn transfer_token<'info>(
 ) -> Result<()> {
     let owner = &ctx.accounts.owner;
     let destination = &ctx.accounts.destination;
-    let asset = &ctx.accounts.asset;
+    let asset = &ctx.accounts.mint;
     let accounts = ctx.remaining_accounts.to_vec();
 
     if *asset.owner == Token2022::id() {
@@ -175,7 +174,6 @@ fn transfer_token_2022<'info>(
 
     // We deserialize in closure to make sure we drop the bytes after borrowing
     let decimals: u8 = {
-        msg!("Unpacking mint account");
         let bytes = asset.try_borrow_data()?;
         let mint = StateWithExtensions::<SplMintAccount>::unpack(&bytes)?;
         mint.base.decimals
@@ -254,7 +252,7 @@ fn transfer_token_2022<'info>(
         ))?;
     }
 
-    // Update metadata account just to fuck with it
+    // Update metadata account to update its fields
     let metadata_pointer_ai = next_account_info(&mut remaining_accounts)?;
     let mut bytes = metadata_pointer_ai.try_borrow_mut_data()?;
     if bytes[0..8] != MetadataInfo::DISCRIMINATOR {
@@ -262,9 +260,7 @@ fn transfer_token_2022<'info>(
         return Err(ProgramError::InvalidAccountData.into());
     }
     let mut metadata = MetadataInfo::try_from_slice(&bytes[8..])?;
-    metadata.name = "d".to_string();
-    metadata.symbol = "e".to_string();
-    metadata.uri = "f".to_string();
+    metadata.update_on_transfer();
     let metadata_bytes = metadata.try_to_vec()?;
     bytes[8..].copy_from_slice(&metadata_bytes);
 
